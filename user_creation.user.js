@@ -28,7 +28,7 @@
   // 1. CONFIGURATION & CONSTANTS
   // =========================================================================
   const SCRIPT_VERSION =
-    typeof GM_info !== "undefined" && GM_info?.script?.version ? `v${GM_info.script.version}` : "v0.7.6";
+    typeof GM_info !== "undefined" && GM_info?.script?.version ? `v${GM_info.script.version}` : "v0.7.8";
 
   const CONFIG = {
     DEFAULT_DELAYS: {
