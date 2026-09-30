@@ -1,0 +1,20 @@
+﻿UPDATE MYTOUR 03/09/2026,,,,,,,,,,,
+ETHICAL- OFFICE,,,,,,,,,,,
+Ref,StaffID,Full Name,LC With,Department,Group,Position,Người duyệt booking phòng,Class A,Class B,Class C,Email
+1,ET0320,Vinod Maruti Patil,MAXXCARE,Ethical,Ethical,Business Unit Head,Người duyệt,1250000,1250000,1250000,vinod@megawecare.com
+2,ET0495,Lê Duy Quý,HD,Ethical,Sales- Ethical,Regional Sales Manager,New Comer,1100000,900000,750000,MegaRSM1@hdvnpharma.com
+ETHICAL- KAM HCMC,,,,,,,,,,,
+Ref,StaffID,Full Name,LC With,Department,Group,Position,Người duyệt booking phòng,Class A,Class B,Class C,Email
+1,ET0039,Hà Thanh Loan,MAXXCARE,Ethical,Office,Assistant,Người duyệt,850000,750000,650000,loan@megawecare.com
+2,ET0494,Trần Văn Đạt,HD,Ethical,Tender Team,Key Account Excutive,New Comer,650000,600000,550000,MegaKAE22@hdvnpharma.com
+3,ET0493,Nguyễn Văn Bé,HD,Ethical,Tender Team,Key Account Manager,New Comer,850000,750000,650000,MegaKAE17@hdvnpharma.com
+4,ET0491,Lê Hữu Dũng,HD,Ethical,Tender Team,Key Account Excutive,New Comer,650000,600000,550000,MegaKAE19@hdvnpharma.com
+5,ET0490,Trần Minh Tâm,HD,Ethical,Tender Team,Key Account Manager,New Comer,850000,750000,650000,MegaKAE21@hdvnpharma.com
+ETHICAL- NORTHERN ASMs,,,,,,,,,,,
+Ref,StaffID,Full Name,LC With,Department,Group,Position,Người duyệt booking phòng,Class A,Class B,Class C,Email
+1,ET0039,Hà Thanh Loan,MAXXCARE,Ethical,Office,Assistant,Người duyệt,850000,750000,650000,loan@megawecare.com
+2,ET0492,Hoàng Xuân Quang,HD,Ethical,SAL - Ethical,Area Manager,New Comer,650000,600000,550000,MegaASM3@hdvnpharma.com
+ETHICAL- SALES TEAM-NORTH 1,,,,,,,,,,,
+Ref,StaffID,Full Name,LC With,Department,Group,Position,Người duyệt booking phòng,Class A,Class B,Class C,Email
+1,ET0479,Nguyễn Đình Hoàng,HD,Ethical,Ethical,Area Manager,Người duyệt,850000,750000,650000,MegaASM1@hdvnpharma.com
+2,ET0487,Mai Lê Duẩn,HD,Ethical,SAL - Ethical,Med Rep,New Comer,650000,600000,550000,maileduan1992@gmail.com

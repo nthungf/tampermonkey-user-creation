@@ -1,0 +1,2988 @@
+// ==UserScript==
+// @name         User Creation Automation
+// @namespace    http://tampermonkey.net/
+// @version      0.6
+// @description  Automate user creation from JSON data
+// @author       Antigravity
+// @match        *://agents.mytour.vn/*
+// @match        *://one-dev.tripi.vn/*
+// @match        *://portal.mybiztravel.vn/*
+// @require      https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js
+// @require      https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/javascript/javascript.min.js
+// @require      https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/sql/sql.min.js
+// @resource     CM_CSS https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_deleteValue
+// @grant        GM_getResourceText
+// @grant        GM_addStyle
+// ==/UserScript==
+
+(function () {
+  "use strict";
+
+  const tmStorage = {
+    getItem: (k) => {
+      const v = GM_getValue(k);
+      return typeof v !== "undefined" ? v : null;
+    },
+    setItem: (k, v) => GM_setValue(k, v),
+    removeItem: (k) => GM_deleteValue(k),
+  };
+
+  const COPY_ICON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+  const CHECK_ICON = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+  // --- Helpers for React/MUI Automation in Vanilla JS ---
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const readDelaySetting = (key, fallback) => {
+    const parsed = parseInt(tmStorage.getItem(key) || "", 10);
+    return Number.isFinite(parsed) ? clamp(parsed, 100, 10000) : fallback;
+  };
+  const getSearchDelay = () => readDelaySetting("tm_bot_search_delay", 800);
+  const getFillDelay = () => readDelaySetting("tm_bot_fill_delay", 300);
+  const getSearchResultWait = () =>
+    readDelaySetting("tm_bot_search_result_wait", 1600);
+  const getOpenPageDelay = () =>
+    readDelaySetting("tm_bot_open_page_delay", 600);
+  const getDropdownWait = () => readDelaySetting("tm_bot_dropdown_wait", 1200);
+  let codeMirrorLoader = null;
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(s);
+    });
+  }
+
+  function loadStyle(href) {
+    if (document.querySelector(`link[href="${href}"]`)) return;
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = href;
+    document.head.appendChild(l);
+  }
+
+  async function ensureCodeMirrorLoaded() {
+    // Load IBM Plex Mono dynamically
+    loadStyle(
+      "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap",
+    );
+
+    if (window.CodeMirror) {
+      if (!document.getElementById("tm-cm-css")) {
+        try {
+          const css = GM_getResourceText("CM_CSS");
+          GM_addStyle(css);
+          const marker = document.createElement("style");
+          marker.id = "tm-cm-css";
+          document.head.appendChild(marker);
+        } catch (e) {
+          console.warn(
+            "[BOT] Failed to inject CodeMirror CSS via GM_addStyle. Falling back to dynamic link.",
+            e,
+          );
+          loadStyle(
+            "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css",
+          );
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Resiliently click an element or its parent button
+   */
+  function robustClick(el) {
+    if (!el) return;
+    // Correct browser order: mousedown -> click -> mouseup
+    el.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    el.click();
+    el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  }
+
+  /**
+   * Fill a standard input and trigger React change events
+   */
+  function setNativeValue(element, value) {
+    const valueSetter = Object.getOwnPropertyDescriptor(element, "value").set;
+    const prototype = Object.getPrototypeOf(element);
+    const prototypeValueSetter = Object.getOwnPropertyDescriptor(
+      prototype,
+      "value",
+    ).set;
+
+    if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
+      prototypeValueSetter.call(element, value);
+    } else if (valueSetter) {
+      valueSetter.call(element, value);
+    } else {
+      element.value = value;
+    }
+  }
+
+  async function typeIntoElement(element, value) {
+    element.focus();
+    element.select();
+    // Use execCommand as it's the most reliable way to update React/Angular internal state
+    document.execCommand("insertText", false, value);
+    // Fallback if execCommand failed
+    if (element.value !== value) {
+      setNativeValue(element, value);
+    }
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(Math.max(80, Math.floor(getFillDelay() / 3)));
+    element.dispatchEvent(new Event("blur", { bubbles: true }));
+    element.focus();
+  }
+
+  function triggerChange(element) {
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    element.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        code: "Enter",
+        keyCode: 13,
+        which: 13,
+        bubbles: true,
+      }),
+    );
+  }
+
+  async function smartFill(
+    container,
+    value,
+    id,
+    placeholder = null,
+    label = null,
+  ) {
+    if (!value) return;
+
+    let el = null;
+    if (id) el = container.querySelector(`#${id}`);
+    if (!el && placeholder) {
+      el = Array.from(container.querySelectorAll("input, textarea")).find(
+        (i) =>
+          i.placeholder &&
+          i.placeholder.toLowerCase().includes(placeholder.toLowerCase()),
+      );
+    }
+    if (!el && label) {
+      const labelEl = Array.from(
+        container.querySelectorAll("label, p, span"),
+      ).find(
+        (l) =>
+          l.textContent &&
+          l.textContent.toLowerCase().includes(label.toLowerCase()),
+      );
+      if (labelEl) {
+        // Try to find associated input
+        if (labelEl.htmlFor) el = document.getElementById(labelEl.htmlFor);
+        if (!el) el = labelEl.parentElement.querySelector("input, textarea");
+      }
+    }
+
+    if (el) {
+      el.focus();
+      setNativeValue(el, value);
+      triggerChange(el);
+      await wait(Math.max(120, Math.floor(getFillDelay() * 0.7)));
+    } else {
+      console.warn(`[BOT] Could not find field: ${id || placeholder || label}`);
+    }
+  }
+
+  /**
+   * Helper to show a "Continue" button in the panel and wait for user interaction
+   */
+  async function waitManual(message) {
+    console.log(`[BOT] Pausing for manual intervention: ${message}`);
+    return new Promise((resolve) => {
+      const statusEl = document.getElementById("tmBotStatus");
+      const tabContent = document.getElementById("tabContent");
+
+      if (statusEl) {
+        statusEl.innerHTML = `⏸ ${message}`;
+        statusEl.style.color = "#e94560";
+        statusEl.style.animation = "tm-pulse 1.5s infinite";
+      }
+
+      const manualBtn = document.createElement("button");
+      manualBtn.id = "tmContinueManual";
+      manualBtn.innerHTML = "▶ CONTINUE NEXT";
+      manualBtn.className = "tm-btn tm-btn-run";
+      manualBtn.style.cssText =
+        "width:100%; margin-top:12px; padding:12px; animation: tm-pulse 2s infinite;";
+
+      if (tabContent) {
+        const logEl = document.getElementById("tmLogOutput");
+        if (logEl) tabContent.insertBefore(manualBtn, logEl);
+        else tabContent.appendChild(manualBtn);
+      } else {
+        const panel = document.getElementById("tm-bot-panel");
+        if (panel) panel.appendChild(manualBtn);
+      }
+
+      manualBtn.onclick = () => {
+        manualBtn.remove();
+        if (statusEl) {
+          statusEl.innerHTML = "⟳ Running...";
+          statusEl.style.color = "#34e89e";
+          statusEl.style.animation = "tm-pulse 1.5s infinite";
+        }
+        console.log("[BOT] Resuming from manual pause.");
+        resolve();
+      };
+    });
+  }
+  async function fillAutocomplete(formContainer, placeholder, value) {
+    if (!value) return;
+    console.log(
+      `[BOT] [STAGE: START] Filling Autocomplete: "${placeholder}" -> "${value}"`,
+    );
+
+    const findInput = () =>
+      Array.from(formContainer.querySelectorAll("input")).find((i) =>
+        (i.placeholder || "")
+          .toLowerCase()
+          .includes((placeholder || "").toLowerCase()),
+      );
+
+    let input = findInput();
+    if (!input) {
+      console.warn(`[BOT] [STAGE: ERROR] Input not found for "${placeholder}"`);
+      return;
+    }
+
+    const fieldRoot =
+      input.closest(".MuiAutocomplete-root") || input.parentElement;
+    input.scrollIntoView({ block: "center", behavior: "smooth" });
+    await wait(getFillDelay());
+
+    const clearBtn = fieldRoot.querySelector(".MuiAutocomplete-clearIndicator");
+    if (clearBtn && clearBtn.offsetParent !== null) {
+      console.log("[BOT] Resetting specific field...");
+      clearBtn.click();
+      await wait(Math.max(120, Math.floor(getFillDelay() * 0.7)));
+      input = findInput();
+    }
+
+    console.log("[BOT] [STAGE 1: Activation] Opening dropdown...");
+    const isOpen = () =>
+      input.getAttribute("aria-expanded") === "true" ||
+      !!document.querySelector('[role="listbox"]');
+
+    if (!isOpen()) {
+      const popupBtn = fieldRoot.querySelector(
+        ".MuiAutocomplete-popupIndicator",
+      );
+      if (popupBtn) {
+        popupBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        popupBtn.click();
+        await wait(getFillDelay());
+      }
+    }
+
+    if (!isOpen()) {
+      input.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      input.focus();
+      input.click();
+      await wait(Math.max(250, Math.floor(getFillDelay() * 1.3)));
+    }
+
+    console.log("[BOT] [STAGE 2: Typing] Sending search string...");
+    setNativeValue(input, "");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(getFillDelay());
+
+    setNativeValue(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(getDropdownWait()); // Configurable wait for dropdown filtering
+
+    console.log("[BOT] [STAGE 3: Waiting] Polling for listbox...");
+    let listbox = null;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      // Priority: Listbox referenced by aria-controls of the input
+      const controlsId = input.getAttribute("aria-controls");
+      if (controlsId) {
+        listbox = document.getElementById(controlsId);
+      }
+      if (!listbox || listbox.offsetParent === null) {
+        listbox = document.querySelector(
+          '[role="listbox"], .MuiAutocomplete-listbox',
+        );
+      }
+
+      if (listbox && listbox.offsetParent !== null) {
+        if (listbox.textContent.includes("Loading...")) {
+          await wait(150);
+          continue;
+        }
+        console.log("[BOT] Listbox confirmed.");
+        break;
+      }
+      if (attempt % 5 === 0)
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+        );
+      await wait(150);
+    }
+
+    if (!listbox || listbox.offsetParent === null) {
+      console.warn(
+        "[BOT] [STAGE: TIMEOUT] Dropdown did not appear or is invisible.",
+      );
+      return;
+    }
+
+    console.log("[BOT] [STAGE 4: Selection] Picking item...");
+    await wait(Math.max(120, Math.floor(getFillDelay() * 0.7))); // Safety buffer for filtering
+
+    const options = Array.from(
+      listbox.querySelectorAll(
+        '[role="option"], .MuiAutocomplete-option, li[class*="option"]',
+      ),
+    ).filter((el) => {
+      const text = el.textContent.trim().toLowerCase();
+      return text !== "" && text !== "loading..." && text !== "no options";
+    });
+
+    if (options.length > 0) {
+      // Find EXACT match if possible (especially for emails/names)
+      let matchIdx = options.findIndex(
+        (o) => o.textContent.trim().toLowerCase() === value.toLowerCase(),
+      );
+      if (matchIdx === -1) matchIdx = 0; // Default to first
+
+      console.log(
+        `[BOT] Selecting option at index ${matchIdx}: "${options[matchIdx].textContent.trim()}".`,
+      );
+
+      // 1. Highlight the option using ArrowDown steps
+      const targetOption = options[matchIdx];
+      const isAlreadyFocus =
+        targetOption.getAttribute("data-focus") === "true" ||
+        targetOption.getAttribute("aria-selected") === "true";
+
+      if (!isAlreadyFocus) {
+        console.log("[BOT] Moving highlight to target...");
+        for (let i = 0; i <= matchIdx; i++) {
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+          );
+          await wait(Math.max(70, Math.floor(getFillDelay() / 3)));
+        }
+      } else {
+        console.log("[BOT] Target already highlighted, skipping ArrowDown.");
+      }
+
+      // 2. Commit with Enter
+      await wait(Math.max(120, Math.floor(getFillDelay() * 0.7)));
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+        }),
+      );
+
+      await wait(Math.max(350, Math.floor(getFillDelay() * 2.7)));
+
+      // Verification: If menu is still open or input is empty, fallback to mouse click
+      if (document.querySelector('[role="listbox"]') || input.value === "") {
+        console.log(
+          "[BOT] Selection did not commit via keyboard. Trying mouse fallback...",
+        );
+        const targetOption = options[matchIdx];
+        targetOption.scrollIntoView({ block: "nearest" });
+        await wait(Math.max(80, Math.floor(getFillDelay() / 3)));
+        targetOption.dispatchEvent(
+          new MouseEvent("mousedown", { bubbles: true }),
+        );
+        targetOption.click();
+        await wait(500);
+      }
+    } else {
+      console.warn("[BOT] Listbox found but no valid options found.");
+    }
+  }
+
+  async function processUser(user, dryRun = true) {
+    const USER_LIST_PATH = "/generalSetting/userManagement";
+
+    // Navigate to user management page if not there
+    if (!window.location.pathname.includes(USER_LIST_PATH)) {
+      console.log("[BOT] Not on user management page. Navigating...");
+      window.location.href = USER_LIST_PATH;
+      await new Promise(() => { }); // Wait for reload
+      return false;
+    }
+
+    const drawer = document.querySelector(".MuiDrawer-paperAnchorRight");
+    if (!drawer) {
+      // Search for existing user to enable "Sync" behavior (Update if exists, else Create)
+      const activePanel =
+        document.querySelector('[role="tabpanel"]:not([hidden])') || document;
+      const searchInput =
+        activePanel.querySelector("#searchStr") ||
+        document.getElementById("searchStr");
+
+      if (searchInput) {
+        console.log(`[BOT] Searching for existing user: ${user.email}`);
+        await typeIntoElement(searchInput, user.email);
+        await wait(getSearchDelay());
+
+        const searchBtn = Array.from(
+          activePanel.querySelectorAll("button"),
+        ).find((b) => b.textContent && b.textContent.includes("Tìm kiếm"));
+        if (searchBtn) {
+          console.log("[BOT] Triggering search via Enter and Click...");
+          searchInput.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+            }),
+          );
+          await wait(Math.max(120, Math.floor(getSearchDelay() / 4)));
+          robustClick(searchBtn);
+        }
+        await wait(getSearchResultWait()); // Wait for search results to render
+
+        // Poll for result row
+        let resultRow = null;
+        const pollAttempts = Math.max(
+          3,
+          Math.ceil(getSearchResultWait() / 300),
+        );
+        for (let i = 0; i < pollAttempts; i++) {
+          const tbody = document.querySelector("tbody.MuiTableBody-root");
+          if (tbody) {
+            const allRows = Array.from(tbody.querySelectorAll("tr"));
+            resultRow = allRows.find((tr) => {
+              const text = (tr.textContent || "").toLowerCase();
+              return (
+                text.includes(user.email.toLowerCase()) &&
+                tr.querySelector("td")
+              );
+            });
+            if (!resultRow) {
+              const noData =
+                (tbody.textContent || "")
+                  .toLowerCase()
+                  .includes("không có dữ liệu") ||
+                (tbody.textContent || "").toLowerCase().includes("no data");
+              if (noData) break;
+            }
+          }
+          if (resultRow) break;
+          await wait(300);
+        }
+
+        const shouldUpdate =
+          tmStorage.getItem("tm_bot_update_existing") === "true";
+        const shouldCreate =
+          tmStorage.getItem("tm_bot_create_missing") !== "false";
+
+        if (resultRow) {
+          if (!shouldUpdate) {
+            console.log(
+              `[BOT] User ${user.email} exists. (Update disabled) Skipping.`,
+            );
+            return true;
+          }
+          console.log("[BOT] User found. Clicking Edit link...");
+          const editLink = resultRow.querySelector('a[href*="/update"]');
+          const editBtn = editLink || resultRow.querySelector("button");
+
+          if (editLink) {
+            editLink.click();
+          } else if (editBtn) {
+            editBtn.click();
+          } else {
+            resultRow.click();
+          }
+          await wait(getOpenPageDelay());
+        } else {
+          if (!shouldCreate) {
+            console.log(
+              `[BOT] User ${user.email} not found. (Create disabled) Skipping.`,
+            );
+            return true;
+          }
+          console.log("[BOT] User not found. Creating new...");
+          const addBtn = Array.from(document.querySelectorAll("button")).find(
+            (b) => b.textContent && b.textContent.includes("Thêm mới"),
+          );
+          if (addBtn) {
+            addBtn.click();
+            await wait(getOpenPageDelay());
+          } else {
+            console.error("[BOT] 'Thêm mới' button not found.");
+            return false;
+          }
+        }
+      } else {
+        const addBtn = Array.from(document.querySelectorAll("button")).find(
+          (b) => b.textContent && b.textContent.includes("Thêm mới"),
+        );
+        if (!addBtn) {
+          console.log(
+            "[BOT] 'Thêm mới' button not found. Navigating to user management...",
+          );
+          window.location.href = USER_LIST_PATH;
+          await new Promise(() => { });
+          return false;
+        }
+        addBtn.click();
+        await wait(getOpenPageDelay());
+      }
+    }
+
+    const form =
+      document.querySelector("form") ||
+      document.querySelector(".MuiDrawer-paperAnchorRight form");
+    if (!form) throw new Error("Could not find user creation form");
+
+    // Detect if we are in Update mode (Email is usually fixed/disabled in Edit drawer)
+    const emailInput =
+      form.querySelector('input[name="email"]') ||
+      form.querySelector('input[type="email"]');
+    const isUpdate =
+      emailInput &&
+      (emailInput.disabled ||
+        emailInput.readOnly ||
+        (emailInput.value &&
+          emailInput.value.toLowerCase() === (user.email || "").toLowerCase()));
+
+    const updateFields = async () => {
+      console.log(`[BOT] Filling fields for ${user.email || "new user"}...`);
+
+      // Text/Smart fields
+      if (user.name) await smartFill(form, user.name, "name", "Nhập họ tên");
+      if (!isUpdate && user.email)
+        await smartFill(form, user.email, "email", "Nhập địa chỉ email");
+      if (user.password)
+        await smartFill(form, user.password, "password", "******");
+      if (user.phone)
+        await smartFill(form, user.phone, null, "Nhập số điện thoại");
+      if (user.employee_code)
+        await smartFill(
+          form,
+          user.employee_code,
+          "employeeCode",
+          "Nhập mã nhân viên",
+        );
+      if (user.birthday)
+        await smartFill(form, user.birthday, null, "dd/mm/yyyy");
+
+      // Gender radio
+      if (user.gender) {
+        const genderLabel = Array.from(
+          form.querySelectorAll("label, span"),
+        ).find((el) => el.textContent && el.textContent.trim() === user.gender);
+        if (genderLabel) {
+          const radio =
+            genderLabel.querySelector('input[type="radio"]') ||
+            genderLabel.parentElement.querySelector('input[type="radio"]');
+          if (radio) radio.click();
+        }
+      }
+
+      // Autocomplete fields
+      if (user.department)
+        await fillAutocomplete(form, "Chọn phòng ban", user.department);
+      if (user.job_title)
+        await fillAutocomplete(form, "Chọn chức vụ", user.job_title);
+      if (user.role) await fillAutocomplete(form, "Chọn vai trò", user.role);
+      if (user.branch)
+        await fillAutocomplete(form, "Chọn chi nhánh", user.branch);
+    };
+
+    await updateFields();
+
+    await wait(800);
+
+    if (!dryRun) {
+      const saveBtn = Array.from(document.querySelectorAll("button")).find(
+        (b) => {
+          const txt = (b.innerText || b.textContent || "").trim();
+          return (
+            (txt.includes("Lưu lại") || txt === "Lưu") &&
+            b.offsetParent !== null
+          );
+        },
+      );
+
+      if (!saveBtn) throw new Error("Could not find visible 'Lưu lại' button");
+      if (saveBtn.disabled) throw new Error("Save button is DISABLED.");
+
+      saveBtn.focus();
+      robustClick(saveBtn);
+      await wait(2500);
+
+      const confirmBtn = Array.from(document.querySelectorAll("button")).find(
+        (b) => {
+          const txt = (b.innerText || b.textContent || "").trim();
+          return (
+            (txt.includes("Đồng ý") || txt.includes("Xác nhận")) &&
+            b.offsetParent !== null
+          );
+        },
+      );
+
+      if (confirmBtn) {
+        robustClick(confirmBtn);
+        await wait(3000);
+      }
+
+      const errors = Array.from(
+        form.querySelectorAll(".Mui-error, .MuiFormHelperText-root"),
+      )
+        .map((e) => e.textContent.trim())
+        .filter((t) => t.length > 0);
+
+      if (errors.length > 0)
+        throw new Error(`Form has errors: ${errors.join(" | ")}`);
+    } else {
+      await waitManual(`Verify data for <b>${user.name}</b> and SAVE`);
+    }
+    return true;
+  }
+
+  async function processApprovalSync(
+    task,
+    dryRun = true,
+    items,
+    currentIndex,
+    allowCreate = true,
+  ) {
+    const LIST_PATTERN = "/generalSetting/approval";
+    const currentUrl = window.location.pathname;
+    const isFormPage = () =>
+      window.location.pathname.includes("createAccount") ||
+      window.location.pathname.includes("updateAccount");
+    const isListPage = () =>
+      window.location.pathname.includes(LIST_PATTERN) && !isFormPage();
+
+    console.log(
+      `[BOT] Sync Context: isForm=${isFormPage()} isList=${isListPage()} URL=${currentUrl}`,
+    );
+
+    if (
+      !window.location.pathname.includes(LIST_PATTERN) &&
+      !window.location.pathname.includes("createAccount") &&
+      !window.location.pathname.includes("updateAccount")
+    ) {
+      console.log("[BOT] Not on approval list or form. Navigating to list...");
+      window.location.href = LIST_PATTERN;
+      return false;
+    }
+
+    if (isListPage()) {
+      console.log("[BOT] List page: Searching for account...");
+      const accountTab = Array.from(
+        document.querySelectorAll('button[role="tab"]'),
+      ).find(
+        (b) =>
+          b.textContent && b.textContent.toLowerCase().includes("tài khoản"),
+      );
+      if (accountTab && accountTab.getAttribute("aria-selected") !== "true") {
+        accountTab.click();
+        await wait(1500);
+      }
+
+      const activePanel =
+        document.querySelector('[role="tabpanel"]:not([hidden])') || document;
+      const searchInput =
+        activePanel.querySelector("#searchStr") ||
+        document.getElementById("searchStr");
+      if (searchInput) {
+        await typeIntoElement(searchInput, task.email);
+        await wait(getSearchDelay());
+
+        const searchBtn = Array.from(
+          activePanel.querySelectorAll("button"),
+        ).find((b) => b.textContent && b.textContent.includes("Tìm kiếm"));
+        if (searchBtn) {
+          searchInput.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+            }),
+          );
+          await wait(Math.max(120, Math.floor(getSearchDelay() / 4)));
+          robustClick(searchBtn);
+        }
+        await wait(getSearchDelay() * 5);
+      }
+
+      // Poll for results row
+      let resultRow = null;
+      for (let i = 0; i < 5; i++) {
+        const allRows = Array.from(activePanel.querySelectorAll("tr"));
+        resultRow = allRows.find(
+          (tr) =>
+            tr.textContent &&
+            tr.textContent.includes(task.email) &&
+            tr.innerText.includes("@"),
+        );
+        if (resultRow) break;
+        await wait(1000);
+      }
+
+      if (resultRow) {
+        console.log("[BOT] Account found. Clicking edit...");
+        const editBtn =
+          resultRow.querySelector(
+            'a[href*="/updateAccount"], button:has(svg[data-testid="EditIcon"])',
+          ) || Array.from(resultRow.querySelectorAll("button")).pop();
+        if (editBtn) {
+          editBtn.click();
+          await wait(2000);
+        }
+      } else {
+        if (!allowCreate) {
+          console.log(
+            `[BOT] Account not found for "${task.email}". allowCreate=false, so doing nothing.`,
+          );
+          const nextIndex = currentIndex + 1;
+          if (nextIndex < items.length) {
+            tmStorage.setItem(
+              "tm_bot_exec_state",
+              JSON.stringify({
+                items,
+                currentIndex: nextIndex,
+                isDryRun: dryRun,
+                tab: "CLEANUP",
+              }),
+            );
+          } else {
+            tmStorage.removeItem("tm_bot_exec_state");
+          }
+          return true;
+        }
+        console.log("[BOT] Account not found. Creating new...");
+        const addBtn =
+          activePanel.querySelector('a[href*="createAccount"]') ||
+          Array.from(activePanel.querySelectorAll("button")).find(
+            (b) =>
+              b.textContent &&
+              b.textContent.includes("Thêm mới") &&
+              b.offsetParent !== null,
+          );
+        if (addBtn) addBtn.click();
+        else
+          throw new Error("Could not find Add/Edit button on Sync list page");
+      }
+
+      // After click, we wait for form to appear (SPA or reload)
+      console.log("[BOT] Waiting for form page migration...");
+      for (let attempt = 0; attempt < 15; attempt++) {
+        if (isFormPage()) break;
+        await wait(1000);
+      }
+
+      if (!isFormPage()) {
+        console.log(
+          "[BOT] Page did not migrate. Returning to list to retry...",
+        );
+        window.location.href = LIST_PATTERN;
+        return false;
+      }
+    }
+
+    // --- FORM PAGE LOGIC ---
+    console.log("[BOT] Form page reached. Stabilizing...");
+    await wait(2000);
+
+    const isCreate = window.location.pathname.includes("createAccount");
+    const labels = () =>
+      Array.from(document.querySelectorAll("p, span, label, h6"));
+
+    if (isCreate) {
+      console.log(`[BOT] Filling Target Account: ${task.email}`);
+      const mainAccLabel = labels().find(
+        (l) => l.textContent && l.textContent.includes("Tài khoản áp dụng"),
+      );
+      const mainAccContainer = mainAccLabel
+        ? mainAccLabel.closest("div.sc-dnqmqq")
+        : document;
+      await fillAutocomplete(
+        mainAccContainer,
+        "Chọn tài khoản áp dụng",
+        task.email,
+      );
+      await wait(800);
+    }
+
+    // Cleanup existing steps if updating
+    if (!isCreate) {
+      console.log("[BOT] Cleanup: Removing extra existing steps...");
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const deleteBtns = Array.from(
+          document.querySelectorAll("button"),
+        ).filter(
+          (b) =>
+            (b.textContent || "").includes("Xóa") &&
+            b.classList.contains("MuiButton-textSecondary") &&
+            b.offsetParent !== null,
+        );
+        if (deleteBtns.length === 0) break;
+
+        console.log(`[BOT] Deleting step... (${deleteBtns.length} remaining)`);
+        deleteBtns[deleteBtns.length - 1].click();
+        await wait(1000); // Wait for DOM removal
+      }
+    }
+
+    console.log(`[BOT] Applying ${task.steps.length} steps...`);
+    for (let i = 0; i < task.steps.length; i++) {
+      const stepNum = i + 1;
+      const stepLabelText = `Bước ${stepNum}`;
+      const approver = task.steps[i].approver_email;
+
+      let labelEl = labels().find((el) =>
+        (el.textContent || "").replace(/\s/g, " ").includes(stepLabelText),
+      );
+
+      if (!labelEl) {
+        console.log(
+          `[BOT] Step ${stepNum} not visible. Clicking 'Thêm bước'...`,
+        );
+        const addBtn = Array.from(document.querySelectorAll("button")).find(
+          (b) =>
+            (b.textContent || "").includes("Thêm bước") &&
+            b.offsetParent !== null,
+        );
+        if (addBtn) {
+          addBtn.click();
+          await wait(1200);
+          labelEl = labels().find((el) =>
+            (el.textContent || "").replace(/\s/g, " ").includes(stepLabelText),
+          );
+        }
+      }
+
+      if (labelEl) {
+        const stepContainer =
+          labelEl.closest("div.sc-dnqmqq") ||
+          labelEl.parentElement.parentElement;
+        const autocomplete = stepContainer.querySelector(
+          ".MuiAutocomplete-root",
+        );
+        if (autocomplete) {
+          await fillAutocomplete(autocomplete, "", approver);
+          await wait(800);
+        }
+      }
+    }
+
+    if (!dryRun) {
+      console.log("[BOT] Saving sync flow...");
+      const saveBtn = Array.from(document.querySelectorAll("button")).find(
+        (b) =>
+          (b.innerText || b.textContent || "").includes("Lưu lại") &&
+          b.offsetParent !== null,
+      );
+
+      if (saveBtn) {
+        saveBtn.scrollIntoView({ block: "center" });
+        robustClick(saveBtn);
+        await wait(1500);
+        const confirmBtn = Array.from(document.querySelectorAll("button")).find(
+          (b) =>
+            (b.innerText || b.textContent || "").includes("Đồng ý") &&
+            b.offsetParent !== null,
+        );
+        if (confirmBtn) robustClick(confirmBtn);
+        await wait(3000);
+      }
+    } else {
+      await waitManual(`Verify Sync for <b>${task.email}</b> and SAVE`);
+    }
+
+    const stateTab = tmStorage.getItem("tm_bot_tab") || "SYNC";
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < items.length) {
+      tmStorage.setItem(
+        "tm_bot_exec_state",
+        JSON.stringify({
+          items,
+          currentIndex: nextIndex,
+          isDryRun: dryRun,
+          tab: stateTab,
+        }),
+      );
+    } else {
+      tmStorage.removeItem("tm_bot_exec_state");
+    }
+
+    console.log("[BOT] Sync sequence complete. Returning to list...");
+    window.location.href = LIST_PATTERN;
+    await new Promise(() => { });
+    return false;
+  }
+
+  async function processOrg(item, dryRun = true) {
+    const ORG_URL =
+      "https://agents.mytour.vn/generalSetting/companyInfomation/company?page=0";
+
+    if (!window.location.href.includes("/generalSetting/companyInfomation")) {
+      console.log(
+        "[BOT] Not on organization page. Navigating to company info...",
+      );
+      window.location.href = ORG_URL;
+      await new Promise(() => { });
+      return false;
+    }
+
+    const tabMap = { BRANCH: 1, DEPARTMENT: 2, JOB_TITLE: 3 };
+    const targetTabIndex = tabMap[item.type.toUpperCase()];
+    if (targetTabIndex === undefined)
+      throw new Error("Invalid Org type: " + item.type);
+
+    const tabs = Array.from(document.querySelectorAll('button[role="tab"]'));
+    if (
+      tabs[targetTabIndex] &&
+      tabs[targetTabIndex].getAttribute("aria-selected") !== "true"
+    ) {
+      console.log(`[BOT] Switching to tab: ${item.type}`);
+      tabs[targetTabIndex].click();
+      await wait(Math.max(1000, Math.floor(getSearchDelay() * 2)));
+    }
+
+    const activePanel =
+      document.querySelector('[role="tabpanel"]:not([hidden])') ||
+      document.querySelector(
+        '.react-swipeable-view-container > div:not([aria-hidden="true"])',
+      );
+
+    let searchInput = null;
+    if (item.type.toUpperCase() === "BRANCH")
+      searchInput = activePanel.querySelector("#name");
+    else if (item.type.toUpperCase() === "DEPARTMENT")
+      searchInput = activePanel.querySelector("#departmentName");
+    else if (item.type.toUpperCase() === "JOB_TITLE")
+      searchInput = activePanel.querySelector("#name");
+
+    if (searchInput) {
+      console.log(`[BOT] Searching for ${item.type}: ${item.name}`);
+      searchInput.focus();
+      setNativeValue(searchInput, item.name);
+      triggerChange(searchInput);
+      await wait(1500);
+      const searchBtn = Array.from(activePanel.querySelectorAll("button")).find(
+        (b) => b.textContent && b.textContent.includes("Tìm kiếm"),
+      );
+      if (searchBtn) searchBtn.click();
+      await wait(getSearchDelay() * 5);
+    }
+
+    const trs = Array.from(activePanel.querySelectorAll("tr"));
+    const row = trs.find((tr) => (tr.textContent || "").includes(item.name));
+    const shouldUpdate = tmStorage.getItem("tm_bot_update_existing") === "true";
+    const shouldCreate = tmStorage.getItem("tm_bot_create_missing") !== "false";
+
+    if (row) {
+      if (!shouldUpdate) {
+        console.log(
+          `[BOT] ${item.type} "${item.name}" already exists. (Update disabled) Skipping.`,
+        );
+        return true;
+      }
+      console.log(
+        `[BOT] ${item.type} "${item.name}" exists. Clicking 'Cập nhật'...`,
+      );
+      const updateBtn =
+        Array.from(row.querySelectorAll("button, a, svg, span")).find((el) => {
+          const title =
+            el.getAttribute("title") || el.getAttribute("aria-label") || "";
+          const content = el.textContent || "";
+          return (
+            title.includes("Cập nhật") ||
+            title.includes("Sửa") ||
+            content.includes("Cập nhật")
+          );
+        }) ||
+        row.querySelector("button:last-child") ||
+        row.querySelector("a:last-child");
+
+      if (updateBtn) {
+        updateBtn.click();
+        await wait(2500);
+      } else {
+        console.warn(
+          "[BOT] Found row but no 'Cập nhật' button. Proceeding with creation logic if allowed.",
+        );
+        if (!shouldCreate) return true;
+        const addBtn = Array.from(
+          activePanel.querySelectorAll("button, a"),
+        ).find((b) => b.textContent && b.textContent.includes("Thêm mới"));
+        if (addBtn) {
+          addBtn.click();
+          await wait(2500);
+        }
+      }
+    } else {
+      if (!shouldCreate) {
+        console.log(
+          `[BOT] ${item.type} "${item.name}" not found. (Create disabled) Skipping.`,
+        );
+        return true;
+      }
+      console.log(`[BOT] ${item.type} "${item.name}" not found. Creating...`);
+      const addBtn = Array.from(activePanel.querySelectorAll("button, a")).find(
+        (b) => b.textContent && b.textContent.includes("Thêm mới"),
+      );
+      if (addBtn) {
+        addBtn.click();
+        await wait(2500);
+      } else {
+        throw new Error(`Could not find 'Thêm mới' button for ${item.type}`);
+      }
+    }
+
+    // Handle Department Navigation (it redirects to a new page)
+    if (
+      item.type.toUpperCase() === "DEPARTMENT" &&
+      window.location.pathname.includes("/department/create")
+    ) {
+      console.log("[BOT] Redirected to department creation page.");
+    }
+
+    const dialog = document.querySelector('[role="dialog"]') || document;
+    const form =
+      dialog.querySelector("form") ||
+      dialog.querySelector(".MuiPaper-root form") ||
+      document.querySelector("form");
+
+    if (!form) throw new Error("Could not find creation form");
+
+    if (item.type.toUpperCase() === "BRANCH") {
+      await smartFill(form, item.name, "name", "Nhập tên chi nhánh");
+      if (item.address)
+        await smartFill(form, item.address, "address", "Nhập địa chỉ");
+      if (item.taxCode)
+        await smartFill(form, item.taxCode, "taxCode", "Nhập mã số thuế");
+    } else if (item.type.toUpperCase() === "DEPARTMENT") {
+      await smartFill(form, item.name, "name", "Nhập tên phòng ban");
+      if (item.code)
+        await smartFill(form, item.code, "code", "Nhập mã phòng ban");
+      if (item.branch)
+        await fillAutocomplete(form, "Chọn chi nhánh", item.branch);
+    } else if (item.type.toUpperCase() === "JOB_TITLE") {
+      await smartFill(form, item.name, "name", "Nhập tên chức vụ");
+    }
+
+    if (!dryRun) {
+      const saveBtn = Array.from(form.querySelectorAll("button")).find((b) => {
+        const t = b.textContent || "";
+        return t.includes("Lưu lại") || t === "Lưu";
+      });
+      if (saveBtn) {
+        saveBtn.click();
+        await wait(3000);
+      }
+    } else {
+      await waitManual(`Verify ${item.type}: <b>${item.name}</b> and SAVE`);
+    }
+
+    return true;
+  }
+
+  async function processCleanup(task, dryRun = true, items, currentIndex) {
+    const LIST_PATTERN = "/generalSetting/approval";
+    const currentUrl = window.location.pathname;
+
+    if (!currentUrl.includes(LIST_PATTERN)) {
+      console.log("[BOT] Not on approval page. Navigating...");
+      window.location.href = LIST_PATTERN;
+      await new Promise(() => { });
+      return false;
+    }
+
+    const userSearch =
+      typeof task === "string"
+        ? task
+        : task.email || (task.target_user_emails && task.target_user_emails[0]);
+    if (!userSearch) {
+      console.error("[BOT] Invalid task for cleanup:", task);
+      return true;
+    }
+
+    console.log(`[BOT] Smart Cleanup: Processing search "${userSearch}"`);
+
+    // Ensure "Tài khoản" tab
+    const accountTab = Array.from(
+      document.querySelectorAll('button[role="tab"]'),
+    ).find(
+      (b) => b.textContent && b.textContent.toLowerCase().includes("tài khoản"),
+    );
+    if (accountTab && accountTab.getAttribute("aria-selected") !== "true") {
+      accountTab.click();
+      await wait(1500);
+    }
+
+    const activePanel =
+      document.querySelector('[role="tabpanel"]:not([hidden])') || document;
+    const searchInput =
+      activePanel.querySelector("#searchStr") ||
+      document.getElementById("searchStr");
+
+    if (searchInput) {
+      const currentSearch = searchInput.value.trim();
+      if (currentSearch !== userSearch) {
+        console.log(`[BOT] Searching for account: ${userSearch}`);
+        await typeIntoElement(searchInput, userSearch);
+        await wait(getSearchDelay());
+
+        const searchBtn = Array.from(
+          activePanel.querySelectorAll("button"),
+        ).find((b) => {
+          const txt = (b.innerText || b.textContent || "").trim().toLowerCase();
+          return (
+            (txt.includes("tìm kiếm") || txt.includes("search")) &&
+            b.offsetParent !== null
+          );
+        });
+        if (searchBtn) {
+          searchInput.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+            }),
+          );
+          await wait(Math.max(120, Math.floor(getSearchDelay() / 4)));
+          robustClick(searchBtn);
+          await wait(Math.max(getSearchDelay() * 5, 2000));
+        }
+      } else {
+        console.log(`[BOT] Account "${userSearch}" already searched.`);
+      }
+    }
+
+    // --- SMART INTERACTION LOOP ---
+    // 1. Delete all possible rows
+    // 2. If one row remains and is not deleted, click UPDATE and follow sync logic
+    let deletionAttempts = new Map();
+    let handledRows = new Set();
+
+    while (true) {
+      if (!isBotRunning) return false;
+
+      const rows = Array.from(activePanel.querySelectorAll("tr")).filter(
+        (tr) => tr.innerText.includes("@") && !handledRows.has(tr),
+      );
+
+      if (rows.length === 0) {
+        if (deletionAttempts.size === 0) {
+          console.log(
+            `[BOT] No existing flows found for "${userSearch}". Nothing to clean up.`,
+          );
+        } else {
+          console.log("[BOT] No more rows found for this search.");
+        }
+        break;
+      }
+
+      const row = rows[0];
+      const rowCells = Array.from(row.querySelectorAll("td"));
+      const rowText = (
+        rowCells[1]
+          ? rowCells[1].innerText
+          : row.innerText.split("\t")[0] || row.innerText.substring(0, 50)
+      ).trim();
+      const attempts = deletionAttempts.get(rowText) || 0;
+
+      // Look for delete button
+      let deleteBtn = Array.from(row.querySelectorAll("button")).find((b) => {
+        const svg = b.querySelector("svg");
+        if (!svg) return false;
+        const path = svg.querySelector("path");
+        return (
+          path &&
+          path.getAttribute("d") &&
+          (path.getAttribute("d").startsWith("M5.75") ||
+            path.getAttribute("d").startsWith("M15.12"))
+        );
+      });
+
+      // If we have a delete button and haven't tried too many times
+      if (deleteBtn && !deleteBtn.disabled && attempts < 1) {
+        console.log(`[BOT] Deleting row: ${rowText}`);
+        deletionAttempts.set(rowText, attempts + 1);
+
+        if (!dryRun) {
+          robustClick(deleteBtn);
+          await wait(2000);
+          const confirmBtn = Array.from(
+            document.querySelectorAll('button, [role="button"]'),
+          ).find((b) => {
+            const txt = (b.innerText || b.textContent || "")
+              .trim()
+              .toLowerCase();
+            return (
+              (txt.includes("đồng ý") ||
+                txt.includes("xác nhận") ||
+                txt.includes("xóa")) &&
+              b.offsetParent !== null
+            );
+          });
+          if (confirmBtn) {
+            robustClick(confirmBtn);
+            await wait(3500);
+            continue;
+          }
+        } else {
+          await waitManual("Verify deletion and click DELETE/CONFIRM manually");
+          break;
+        }
+      } else {
+        // Row persists after delete OR no delete button. Trigger UPDATE if sync data is available.
+        console.log(`[BOT] Row persists or protected (${rowText}).`);
+        const editBtn =
+          row.querySelector(
+            'a[href*="/updateAccount"], button:has(svg[data-testid="EditIcon"])',
+          ) || Array.from(row.querySelectorAll("button")).pop();
+
+        const steps = task.approval_steps || task.steps;
+        if (editBtn && typeof task === "object" && steps) {
+          console.log(
+            `[BOT] Switching to UPDATE fallback for persistent row: ${rowText}`,
+          );
+          editBtn.click();
+          await wait(2500);
+          const syncTask = { email: userSearch, steps: steps };
+          const res = await processApprovalSync(
+            syncTask,
+            dryRun,
+            items,
+            currentIndex,
+            false,
+          );
+          if (res === false) return false; // Stop if reload triggered
+          console.log(
+            `[BOT] Finished Smart Sync for persistent row: ${userSearch}`,
+          );
+        } else {
+          console.warn(
+            `[BOT] Finished with user (row persists and no sync data): ${userSearch}`,
+          );
+        }
+
+        // Break out of the while loop for this user search to move to the next user in the list
+        break;
+      }
+    }
+
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < items.length) {
+      tmStorage.setItem(
+        "tm_bot_exec_state",
+        JSON.stringify({
+          items,
+          currentIndex: nextIndex,
+          isDryRun: dryRun,
+          tab: "CLEANUP",
+        }),
+      );
+    } else {
+      tmStorage.removeItem("tm_bot_exec_state");
+    }
+
+    return true;
+  }
+
+  // --- Bot Runner ---
+  async function startBotLoop(items, startIndex, isDryRun, tab) {
+    const statusEl = document.getElementById("tmBotStatus");
+    const logEl = document.getElementById("tmLogOutput");
+    const startBtn = document.getElementById("tmStartBot");
+    const stopBtn = document.getElementById("tmStopBot");
+
+    isBotRunning = true;
+    if (statusEl) {
+      statusEl.innerText = "Running...";
+      statusEl.style.color = "#007bff";
+    }
+    if (startBtn) startBtn.disabled = true;
+    if (stopBtn) stopBtn.style.display = "block";
+    if (logEl) {
+      logEl.style.display = "block";
+      if (startIndex === 0) logEl.innerHTML = "";
+    }
+
+    const dryRunCheck = document.getElementById("tmDryRun");
+    const updateCheck = document.getElementById("tmUpdateExisting");
+    const createCheck = document.getElementById("tmCreateMissing");
+    if (dryRunCheck) dryRunCheck.disabled = true;
+    if (updateCheck) updateCheck.disabled = true;
+    if (createCheck) createCheck.disabled = true;
+
+    const log = (msg) => {
+      if (!logEl) return;
+      logEl.innerHTML += `<div style="margin-bottom:2px;"><span style="color:#999">[${new Date().toLocaleTimeString()}]</span> ${msg}</div>`;
+      logEl.scrollTop = logEl.scrollHeight;
+    };
+
+    if (startIndex === 0) log(`Starting ${tab} automation...`);
+    else log(`Resuming index ${startIndex + 1}...`);
+
+    for (let i = startIndex; i < items.length; i++) {
+      if (!isBotRunning) break;
+      const item = items[i];
+      const label = item.email || item.name || `Item ${i + 1}`;
+      log(`Processing: ${label}`);
+
+      // Save state periodically
+      tmStorage.setItem(
+        "tm_bot_exec_state",
+        JSON.stringify({ items, currentIndex: i, isDryRun, tab }),
+      );
+
+      try {
+        let isDone = false;
+        if (tab === "USER") {
+          isDone = await processUser(item, isDryRun);
+        } else if (tab === "ORG") {
+          isDone = await processOrg(item, isDryRun);
+        } else if (tab === "CLEANUP") {
+          isDone = await processCleanup(item, isDryRun, items, i);
+        } else {
+          isDone = await processApprovalSync(item, isDryRun, items, i);
+        }
+
+        if (!isBotRunning) break;
+
+        if (isDone) {
+          log(`<span style="color:green">✓ Finished index ${i + 1}</span>`);
+          const nextIdx = i + 1;
+          if (nextIdx < items.length) {
+            tmStorage.setItem(
+              "tm_bot_exec_state",
+              JSON.stringify({ items, currentIndex: nextIdx, isDryRun, tab }),
+            );
+          } else {
+            tmStorage.removeItem("tm_bot_exec_state");
+          }
+          await wait(3000); // Throttling next item
+        } else {
+          // Function handled its own lifecycle (reload/navigation)
+          return;
+        }
+      } catch (err) {
+        log(`<span style="color:red">✗ Error: ${err.message}</span>`);
+        isBotRunning = false;
+        injectUI();
+        if (statusEl) {
+          statusEl.innerText = "Paused on Error";
+          statusEl.style.color = "red";
+        }
+        if (startBtn) startBtn.disabled = false;
+        if (dryRunCheck) dryRunCheck.disabled = false;
+        if (updateCheck) updateCheck.disabled = false;
+        if (createCheck) createCheck.disabled = false;
+        return;
+      }
+    }
+
+    if (isBotRunning) {
+      tmStorage.removeItem("tm_bot_exec_state");
+      if (statusEl) {
+        statusEl.innerText = "Complete!";
+        statusEl.style.color = "#28a745";
+      }
+      if (startBtn) startBtn.disabled = false;
+      if (stopBtn) stopBtn.style.display = "none";
+      if (dryRunCheck) dryRunCheck.disabled = false;
+      if (updateCheck) updateCheck.disabled = false;
+      if (createCheck) createCheck.disabled = false;
+
+      // Complete one final round before hiding
+      const icon = document.getElementById("tm-bot-icon");
+      if (icon) {
+        icon.classList.remove("tm-running");
+        icon.classList.add("tm-stopping");
+      }
+      setTimeout(() => {
+        isBotRunning = false;
+        if (icon) icon.classList.remove("tm-stopping");
+        injectUI();
+      }, 1200);
+    }
+  }
+
+  // --- UI Logic ---
+  let isBotRunning = false;
+  let currentTab = tmStorage.getItem("tm_bot_tab") || "USER";
+
+  function savePanelState() {
+    const panel = document.getElementById("tm-bot-panel");
+    if (!panel) return;
+    const inputContainer = panel.querySelector(".tm-input-container");
+    if (inputContainer && inputContainer.offsetHeight > 50) {
+      tmStorage.setItem(`tm_bot_height_${currentTab.toLowerCase()}_input`, inputContainer.offsetHeight);
+    }
+    const outputContainer = panel.querySelector(".tm-output-container");
+    if (outputContainer && outputContainer.offsetHeight > 50) {
+      tmStorage.setItem(`tm_bot_height_${currentTab.toLowerCase()}_output`, outputContainer.offsetHeight);
+    }
+    tmStorage.setItem("tm_bot_visible", panel.style.display === "block");
+  }
+
+  function injectBotStyles() {
+    if (document.getElementById("tm-bot-styles")) return;
+    const style = document.createElement("style");
+    style.id = "tm-bot-styles";
+    style.textContent = `
+            #tm-bot-panel {
+                display: block !important;
+                visibility: hidden;
+                opacity: 0;
+                transform: translateX(30px) translateY(0);
+                position: fixed;
+                top: 66px;
+                right: 20px;
+                z-index: 999999;
+                width: 380px;
+                background: #ffffff;
+                box-shadow: 0 20px 50px rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.1);
+                border: 1px solid rgba(0,0,0,0.05);
+                border-radius: 8px;
+                padding: 0;
+                font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+                color: #333;
+                overflow: hidden;
+                transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                            visibility 0.3s,
+                            transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            #tm-bot-panel.tm-visible {
+                visibility: visible;
+                opacity: 1;
+                transform: translateX(0) translateY(0);
+            }
+            /* Tab content transition */
+            #tm-bot-panel .tm-body-animate {
+                animation: tm-fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+            }
+            #tm-bot-panel .tm-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 16px;
+                background: #f8f9fa;
+                border-bottom: 1px solid #eeeeee;
+            }
+            #tm-bot-panel .tm-header .tm-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #212529;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            #tm-bot-panel .tm-header .tm-title svg { display: block; }
+            #tm-bot-panel .tm-close {
+                background: none;
+                border: none;
+                color: #adb5bd;
+                cursor: pointer;
+                font-size: 22px;
+                line-height: 1;
+                padding: 0;
+                transition: color 0.15s, transform 0.15s;
+            }
+            #tm-bot-panel .tm-close:hover { color: #dc3545; }
+            #tm-bot-panel .tm-close:active { transform: translateY(1px); }
+            #tm-bot-panel .tm-tab-switcher {
+                padding: 12px 16px 0px;
+                background: #ffffff;
+            }
+            #tm-bot-panel .tm-tab-select {
+                font-weight: 600;
+                color: #ff3366;
+                border-color: #ff3366;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ff3366' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'%3E%3C/path%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 12px center;
+                background-size: 12px;
+                -webkit-appearance: none;
+                cursor: pointer;
+                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            #tm-bot-panel .tm-tab-select:hover {
+                background-color: rgba(255, 51, 102, 0.04);
+                box-shadow: 0 2px 8px rgba(255, 51, 102, 0.1);
+            }
+            #tm-bot-panel .tm-tab-select:focus {
+                box-shadow: 0 0 0 3px rgba(255, 51, 102, 0.2);
+            }
+            #tm-bot-panel .tm-body { padding: 8px 16px 16px; background: #ffffff; }
+            #tm-bot-panel .tm-editor-container {
+                position: relative;
+                width: 100%;
+                margin-bottom: 12px;
+                background: #ffffff;
+                border: 1px solid #ced4da;
+                border-radius: 8px;
+                overflow: hidden;
+                resize: vertical;
+                /* 4. Smooth focus glow */
+                transition: border-color 0.2s ease, box-shadow 0.3s ease;
+            }
+            #tm-bot-panel .tm-editor-toolbar {
+                margin-top: -6px;
+                margin-bottom: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+            }
+            #tm-bot-panel .tm-editor-meta {
+                font-size: 11px;
+                color: #6c757d;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            #tm-bot-panel .tm-editor-actions {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            #tm-bot-panel .tm-editor-btn {
+                border: 1px solid #ced4da;
+                background: #fff;
+                color: #495057;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 4px 10px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            #tm-bot-panel .tm-editor-btn:hover {
+                background-color: #f1f3f5;
+                border-color: #868e96;
+                color: #212529;
+            }
+            #tm-bot-panel .tm-editor-container:focus-within {
+                border-color: #ff3366;
+                box-shadow: 0 0 0 3px rgba(255,51,102,0.12), 0 0 12px rgba(255,51,102,0.08);
+            }
+            #tm-bot-panel .tm-highlight-layer,
+            #tm-bot-panel .tm-textarea {
+                padding: 10px;
+                margin: 0;
+                border: none !important;
+                box-sizing: border-box;
+                /* Keep both layers on exactly the same metrics */
+                font-family: 'IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace !important;
+                font-size: 11px;
+                line-height: 1.55;
+                font-weight: 400;
+                tab-size: 4;
+                letter-spacing: 0;
+                word-spacing: 0;
+                font-variant-ligatures: none;
+                font-feature-settings: "liga" 0, "calt" 0;
+                scrollbar-gutter: stable;
+            }
+            #tm-bot-panel .tm-highlight-layer span {
+                font-family: inherit;
+                font-size: inherit;
+                line-height: inherit;
+                font-weight: inherit;
+                letter-spacing: inherit;
+            }
+            #tm-bot-panel .tm-highlight-layer {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                white-space: pre;
+                overflow: auto;
+                pointer-events: none;
+                color: #24292e;
+                z-index: 0;
+                background: transparent;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            #tm-bot-panel .tm-highlight-layer::-webkit-scrollbar {
+                width: 0;
+                height: 0;
+            }
+            #tm-bot-panel .tm-editor-container .tm-highlight-layer {
+                display: none;
+            }
+            #tm-bot-panel .tm-textarea {
+                display: block;
+                width: 100%;
+                height: 100%;
+                position: relative;
+                z-index: 1;
+                background: #ffffff !important;
+                color: #24292e !important;
+                caret-color: #24292e;
+                resize: none;
+                outline: none !important;
+                overflow-y: auto;
+                overflow-x: auto;
+                /* Selection style should be visible */
+            }
+            #tm-bot-panel .CodeMirror {
+                height: 100%;
+                font-family: 'IBM Plex Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+                font-size: 11px;
+                line-height: 1.55;
+            }
+            #tm-bot-panel .CodeMirror-gutters {
+                border-right: 1px solid #e9ecef;
+                background: #f8f9fa;
+            }
+            #tm-bot-panel .CodeMirror .cm-property { color: #d73a49; font-weight: 600; }
+            #tm-bot-panel .CodeMirror .cm-string { color: #032f62; }
+            #tm-bot-panel .CodeMirror .cm-number { color: #005cc5; }
+            #tm-bot-panel .CodeMirror .cm-atom { color: #8a2be2; font-weight: 600; }
+            /* Selection match adjustment */
+            #tm-bot-panel .tm-textarea::selection {
+                background: rgba(255, 51, 102, 0.2);
+            }
+            /* Syntax Colors - Avoid bold if it shifts width */
+            .hl-key { color: #d73a49; }
+            .hl-string { color: #032f62; }
+            .hl-num { color: #005cc5; }
+            .hl-bool { color: #d73a49; }
+            .hl-keyword { color: #d73a49; font-weight: normal; } /* Removed bold to prevent width shift */
+            .hl-comment { color: #6a737d; font-style: normal; }
+            .hl-bracket { color: #24292e; }
+            #tm-bot-panel .tm-options {
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            #tm-bot-panel .Sc-dnqmqq { margin-bottom: 20px; }
+            #tm-bot-panel .tm-checkbox-container {
+                display: inline-block;
+                cursor: pointer;
+                user-select: none;
+                white-space: nowrap;
+            }
+            #tm-bot-panel .tm-speed-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 8px 10px;
+                margin-bottom: 8px;
+            }
+            #tm-bot-panel .tm-speed-item {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+            #tm-bot-panel .tm-speed-item label {
+                font-size: 11px;
+                color: #6c757d;
+                font-weight: 600;
+            }
+            #tm-bot-panel .tm-speed-input {
+                width: 100%;
+                padding: 6px 8px;
+                border: 1px solid #ced4da;
+                border-radius: 6px;
+                font-size: 12px;
+                outline: none;
+                transition: border-color 0.2s, box-shadow 0.2s;
+            }
+            #tm-bot-panel .tm-speed-input:focus {
+                border-color: #ff3366;
+                box-shadow: 0 0 0 3px rgba(255,51,102,0.12);
+            }
+            #tm-bot-panel .tm-checkbox-container input {
+                display: none;
+            }
+            #tm-bot-panel .tm-pill-text {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+                font-weight: 600;
+                color: #495057;
+                background-color: #f1f3f5;
+                border: 1px solid #ced4da;
+                border-radius: 14px;
+                padding: 4px 10px;
+                transition: all 0.2s ease;
+                white-space: nowrap;
+            }
+            #tm-bot-panel .tm-checkbox-container:not(:has(input:disabled)):hover input:not(:checked) ~ .tm-pill-text {
+                background-color: #dee2e6;
+                border-color: #868e96;
+                color: #212529;
+            }
+            #tm-bot-panel .tm-checkbox-container:not(:has(input:disabled)):hover input:checked ~ .tm-pill-text {
+                background-color: #cc0039;
+                border-color: #cc0039;
+                color: #ffffff;
+                box-shadow: 0 4px 8px rgba(255, 51, 102, 0.45);
+            }
+            #tm-bot-panel .tm-checkbox-container input:disabled ~ .tm-pill-text {
+                opacity: 0.5;
+                cursor: not-allowed;
+                background-color: #e9ecef;
+                border-color: #dee2e6;
+                color: #adb5bd;
+            }
+            #tm-bot-panel .tm-checkbox-container input:checked:disabled ~ .tm-pill-text {
+                background-color: #ff99b2;
+                border-color: #ff99b2;
+                color: #ffffff;
+            }
+            #tm-bot-panel .tm-pill-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 11px;
+                font-weight: 600;
+                color: #495057;
+                background-color: #f1f3f5;
+                border: 1px solid #ced4da;
+                border-radius: 14px;
+                padding: 4px 10px;
+                transition: all 0.2s ease;
+                white-space: nowrap;
+                cursor: pointer;
+            }
+            #tm-bot-panel .tm-pill-btn:hover {
+                background-color: #e9ecef;
+            }
+            #tm-bot-panel .tm-pill-btn.primary {
+                color: #ff3366;
+                font-weight: bold;
+            }
+            #tm-bot-panel .tm-pill-btn:active {
+                transform: translateY(1px);
+            }
+            #tm-bot-panel .tm-checkbox-container input:checked ~ .tm-pill-text {
+                background-color: #ff3366;
+                border-color: #ff3366;
+                color: #fff;
+                box-shadow: 0 2px 4px rgba(255, 51, 102, 0.3);
+            }
+            #tm-bot-panel .tm-actions {
+                display: flex;
+                gap: 8px;
+            }
+            #tm-bot-panel .tm-btn {
+                flex: 1;
+                padding: 8px 16px;
+                border: 1px solid transparent;
+                border-radius: 18px;
+                font-weight: 600;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+            #tm-bot-panel .tm-btn:active {
+                transform: translateY(1px);
+            }
+            #tm-bot-panel .tm-btn-run {
+                flex: 2;
+                background: #ff3366;
+                border-color: #ff3366;
+                color: #fff;
+                box-shadow: 0 2px 4px rgba(255, 51, 102, 0.2);
+            }
+            #tm-bot-panel .tm-btn-run:hover:not(:disabled) {
+                background-color: #cc0039;
+                border-color: #cc0039;
+                box-shadow: 0 4px 8px rgba(255, 51, 102, 0.45);
+            }
+            #tm-bot-panel .tm-btn-run:disabled {
+                background: #e9ecef;
+                border-color: #dee2e6;
+                color: #adb5bd;
+                cursor: not-allowed;
+                box-shadow: none;
+                transform: none;
+            }
+            #tm-bot-panel .tm-btn-stop {
+                background: #dc3545;
+                border-color: #dc3545;
+                color: #fff;
+                box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+            }
+            #tm-bot-panel .tm-btn-stop:hover:not(:disabled) {
+                background-color: #bd2130;
+                border-color: #bd2130;
+                box-shadow: 0 4px 8px rgba(220, 53, 69, 0.45);
+            }
+            #tm-bot-panel .tm-status {
+                margin-top: 16px;
+                text-align: center;
+                font-size: 13px;
+                font-weight: 600;
+                padding: 6px;
+                /* 8. Status color transition */
+                transition: color 0.3s ease;
+            }
+            #tm-bot-panel .tm-log {
+                margin-top: 12px;
+                font-size: 12px;
+                color: #495057;
+                max-height: 160px;
+                overflow-y: auto;
+                background: #f8f9fa;
+                padding: 10px;
+                border-radius: 8px;
+                border: 1px solid #eeeeee;
+            }
+            #tm-bot-icon button {
+                background: linear-gradient(135deg, #ff3366 0%, #ff6b6b 100%) !important;
+                border: 1px solid rgba(255,255,255,0.2) !important;
+                border-radius: 50% !important;
+                width: 38px !important;
+                height: 38px !important;
+                padding: 0 !important;
+                cursor: pointer !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                box-shadow: 0 2px 8px rgba(255,51,102,0.2) !important;
+                transition: border-radius 0.15s linear,
+                            box-shadow 0.15s linear !important;
+                box-sizing: border-box !important;
+                position: relative !important;
+                margin: 0 !important;
+                outline: none !important;
+            }
+            #tm-bot-icon button:hover {
+                border-radius: 12px !important;
+                box-shadow: 0 4px 14px rgba(255,51,102,0.35) !important;
+            }
+            #tm-bot-icon button:active {
+                transform: scale(0.92) !important;
+                transition: transform 0.08s linear !important;
+            }
+
+            #tm-bot-icon .tm-modern-icon {
+                color: #ffffff !important;
+                filter: drop-shadow(0 0 2px rgba(255,255,255,0.5)) !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: block !important;
+                box-sizing: border-box !important;
+            }
+            @keyframes tm-pop-in {
+                0% {
+                    opacity: 0;
+                    transform: scale(0.6);
+                }
+                60% {
+                    transform: scale(1.1);
+                }
+                100% {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+            }
+            #tm-bot-icon {
+                position: relative !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                box-sizing: border-box !important;
+                animation: tm-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+            }
+            #tm-bot-icon .tm-border-loader {
+                position: absolute !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) scale(0.8);
+                width: 52px !important;
+                height: 52px !important;
+                pointer-events: none !important;
+                z-index: 100 !important;
+                filter: drop-shadow(0 0 3px rgba(255, 51, 102, 0.65)) !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-sizing: border-box !important;
+                background: transparent !important;
+                border: none !important;
+                opacity: 0;
+                /* Exit transition: immediately fade out container over 0.4s when classes are removed */
+                transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                            transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            #tm-bot-icon.tm-running .tm-border-loader,
+            #tm-bot-icon.tm-stopping .tm-border-loader {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+                transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                            transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            #tm-bot-icon .tm-border-loader rect {
+                stroke-dasharray: 0 100 !important; /* Idle: single dot */
+                stroke-dashoffset: 0;
+                stroke-linecap: round !important;
+                stroke-linejoin: round !important;
+                animation: tm-stroke-rotate 1.2s linear infinite !important;
+                /* Exit transition: wait 0.5s before shrinking back to a dot, so container is already fully faded out */
+                transition: rx 0.15s linear, ry 0.15s linear,
+                            stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.5s !important;
+                box-sizing: border-box !important;
+            }
+            #tm-bot-icon.tm-running .tm-border-loader rect {
+                stroke-dasharray: 30 70 !important; /* Running: arc */
+                animation: tm-stroke-rotate 1.2s linear infinite !important;
+                transition: rx 0.15s linear, ry 0.15s linear,
+                            stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            #tm-bot-icon.tm-stopping .tm-border-loader rect {
+                stroke-dasharray: 100 0 !important; /* Stopping: complete circle */
+                animation: tm-stroke-rotate 1.2s linear infinite !important;
+                transition: rx 0.15s linear, ry 0.15s linear,
+                            stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            #tm-bot-icon button:hover .tm-border-loader rect {
+                rx: 17px !important;
+                ry: 17px !important;
+            }
+            @keyframes tm-stroke-rotate {
+                from {
+                    stroke-dashoffset: 0;
+                }
+                to {
+                    stroke-dashoffset: -100;
+                }
+            }
+            #tm-bot-panel .tm-select {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ced4da;
+                border-radius: 8px;
+                font-size: 13px;
+                background: #fff;
+                margin-bottom: 12px;
+                outline: none;
+            }
+            #tm-bot-panel .tm-select:focus {
+                border-color: #ff3366;
+            }
+            #tm-bot-panel .tm-output-container {
+                margin-top: 12px;
+                position: relative;
+            }
+            #tm-bot-panel .tm-copy-btn {
+                position: absolute;
+                top: 6px;
+                right: 6px;
+                width: 26px;
+                height: 26px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: transparent;
+                color: #6c757d;
+                border: 1px solid transparent;
+                border-radius: 6px;
+                cursor: pointer;
+                opacity: 0.7;
+                z-index: 2;
+                transition: all 0.2s ease-in-out;
+            }
+            #tm-bot-panel .tm-copy-btn:hover {
+                opacity: 1;
+                background-color: #ff3366;
+                border-color: #ff3366;
+                color: #fff;
+            }
+            #tm-bot-panel .tm-copy-btn:active {
+                opacity: 0.85;
+            }
+            #tm-bot-panel .tm-copy-btn.tm-copied {
+                background-color: #28a745;
+                border-color: #28a745;
+                color: #fff;
+                opacity: 1;
+            }
+            /* Select focus */
+            #tm-bot-panel .tm-select {
+                transition: border-color 0.2s, box-shadow 0.2s;
+            }
+            #tm-bot-panel .tm-select:focus {
+                box-shadow: 0 0 0 3px rgba(255,51,102,0.12);
+            }
+            @keyframes tm-flash {
+                0% { border-color: #28a745; box-shadow: 0 0 0 3px rgba(40,167,69,0.25); }
+                100% { border-color: #ced4da; box-shadow: none; }
+            }
+            #tm-bot-panel .tm-flash {
+                animation: tm-flash 0.6s ease-out;
+            }
+            @keyframes tm-pulse-border {
+                0% {
+                    border-color: #28a745;
+                    box-shadow: 0 0 0 0px rgba(40, 167, 69, 0.5);
+                }
+                50% {
+                    border-color: #28a745;
+                    box-shadow: 0 0 0 6px rgba(40, 167, 69, 0.25);
+                }
+                100% {
+                    border-color: #ced4da;
+                    box-shadow: 0 0 0 8px rgba(40, 167, 69, 0);
+                }
+            }
+            #tm-bot-panel .tm-pulse-border {
+                animation: tm-pulse-border 0.8s ease-out;
+            }
+            /* === Keyframes === */
+            @keyframes tm-pulse-light { 0%,100% { opacity:1; } 50% { opacity:0.7; } }
+            @keyframes tm-fade-up {
+                from { opacity: 0; transform: translateY(12px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes tm-check-bounce {
+                0%   { transform: scale(1); }
+                40%  { transform: scale(1.25); }
+                70%  { transform: scale(0.95); }
+                100% { transform: scale(1); }
+            }
+            @keyframes tm-check-pop {
+                0%   { transform: rotate(45deg) scale(0); }
+                60%  { transform: rotate(45deg) scale(1.15); }
+                100% { transform: rotate(45deg) scale(1); }
+            }
+            @keyframes tm-copy-flash {
+                0%   { transform: scale(1); }
+                50%  { transform: scale(1.12); }
+                100% { transform: scale(1); }
+            }
+            .tm-modern-icon-text {
+                background: linear-gradient(135deg, #ff3366 0%, #ff6b6b 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+        `;
+    document.head.appendChild(style);
+  }
+
+  function injectUI() {
+    injectBotStyles();
+    const hasSavedState = !!tmStorage.getItem("tm_bot_exec_state");
+    let panel = document.getElementById("tm-bot-panel");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "tm-bot-panel";
+      document.body.appendChild(panel);
+    }
+
+    const isVisible = tmStorage.getItem("tm_bot_visible") !== "false";
+    if (isVisible) {
+      if (!panel.innerHTML.trim()) renderPanel();
+      panel.classList.add("tm-visible");
+    } else {
+      panel.classList.remove("tm-visible");
+    }
+
+    const existingIcon = document.getElementById("tm-bot-icon");
+    if (existingIcon) {
+      if (existingIcon.parentNode && existingIcon.offsetParent !== null) {
+        const isRunning = isBotRunning || hasSavedState;
+        if (!existingIcon.classList.contains("tm-stopping")) {
+          if (isRunning) existingIcon.classList.add("tm-running");
+          else existingIcon.classList.remove("tm-running");
+        }
+        return;
+      } else {
+        existingIcon.remove();
+      }
+    }
+
+    const header = document.querySelector("header");
+    if (!header) return;
+
+    const botWrapper = document.createElement("div");
+    botWrapper.id = "tm-bot-icon";
+    botWrapper.innerHTML = `
+            <button title="Automator Panel">
+                <svg width="22" height="22" viewBox="0 0 24 24" class="tm-modern-icon" fill="currentColor">
+                    <path d="M11 1l2.2 6.6L20 9.8l-6.8 2.2L11 18.6l-2.2-6.6L2 9.8l6.8-2.2L11 1zM20 14l1.2 3.6L24.8 18.8l-3.6 1.2L20 23.6l-1.2-3.6L15.2 18.8l3.6-1.2L20 14zM5.5 17l0.9 2.7L9.1 20.6 6.4 21.5 5.5 24.2 4.6 21.5 1.9 20.6l2.7-0.9L5.5 17z"/>
+                </svg>
+                <svg class="tm-border-loader" width="52" height="52" viewBox="0 0 52 52">
+                    <rect x="2" y="2" width="48" height="48" fill="none" stroke="#ff3366" stroke-width="3" rx="24" ry="24" pathLength="100" />
+                </svg>
+            </button>`;
+    botWrapper.style.cssText = "display:flex; align-items:center;";
+
+    const isRunning = isBotRunning || hasSavedState;
+    if (isRunning) {
+      setTimeout(() => {
+        const wrapper = document.getElementById("tm-bot-icon");
+        if (wrapper) wrapper.classList.add("tm-running");
+      }, 1000);
+    }
+
+    const target =
+      header.querySelector('div[style*="justify-content: flex-end"]') ||
+      header.querySelector("div:last-child");
+    if (target) target.appendChild(botWrapper);
+
+    botWrapper.onclick = () => {
+      const p = document.getElementById("tm-bot-panel");
+      if (p.classList.contains("tm-visible")) {
+        savePanelState();
+        p.classList.remove("tm-visible");
+        tmStorage.setItem("tm_bot_visible", "false");
+      } else {
+        renderPanel();
+        p.classList.add("tm-visible");
+        tmStorage.setItem("tm_bot_visible", "true");
+      }
+    };
+  }
+
+  function renderPanel() {
+    const panel = document.getElementById("tm-bot-panel");
+    if (!panel) return;
+    const isBudgetTab = currentTab === "BUDGET";
+    const isUserTab = currentTab === "USER";
+    const hasSavedState = !!tmStorage.getItem("tm_bot_exec_state");
+    const showLog = isBotRunning || hasSavedState;
+    const statusText = isBotRunning ? "Running..." : "Ready";
+    const statusColor = isBotRunning ? "#ff3366" : "#6c757d";
+
+    if (isBudgetTab) {
+      panel.innerHTML = `
+                <div class="tm-header">
+                    <div class="tm-title">
+                        <svg viewBox="0 0 24 24" class="tm-modern-icon-text" style="width:20px; height:20px;"><path d="M12 2l1.6 4.8 4.8 1.6-4.8 1.6L12 14.8l-1.6-4.8L5.6 8.4l4.8-1.6L12 2zM19 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3zM7 16l0.8 2.4L10.2 19.2 7.8 20l-0.8 2.4L6.2 20 3.8 19.2l2.4-0.8L7 16z"/></svg>
+                        Automator
+                    </div>
+                    <button class="tm-close" id="tmClosePanel">&times;</button>
+                </div>
+                <div class="tm-tab-switcher">
+                    <select class="tm-select tm-tab-select" id="tmTabSelect">
+                        <option value="USER" ${currentTab === "USER" ? "selected" : ""}>User Creation Mode</option>
+                        <option value="SYNC" ${currentTab === "SYNC" ? "selected" : ""}>Approval Sync Mode</option>
+                        <option value="ORG" ${currentTab === "ORG" ? "selected" : ""}>Org & Settings Mode</option>
+                        <option value="BUDGET" ${currentTab === "BUDGET" ? "selected" : ""}>Budget Automation Mode</option>
+                    </select>
+                </div>
+                <div class="tm-body tm-body-animate" id="tabContent">
+                    <div style="font-size:12px; font-weight:600; margin-bottom:6px; color:#666;">Company:</div>
+                    <select class="tm-select" id="tmBudgetCompany">
+                        <option value="dong_a">Đông Á</option>
+                    </select>
+                    <div class="tm-options" style="margin-bottom:8px;">
+                        <label class="tm-checkbox-container">
+                            <input type="checkbox" id="tmWrapText">
+                            <span class="tm-pill-text">Wrap Input</span>
+                        </label>
+                        <div style="flex:1; display:flex; justify-content:flex-end; gap:6px;">
+                            <button id="tmPrompt" title="Copy AI Prompt" class="tm-pill-btn primary">💡 PROMPT</button>
+                        </div>
+                    </div>
+                    <!-- Editor for Input -->
+                    <div class="tm-editor-container tm-input-container" style="height:150px;">
+                        <div class="tm-highlight-layer" id="tmInputHL"></div>
+                        <textarea class="tm-textarea" id="tmInput" placeholder="Paste target_emails.json here..." spellcheck="false"></textarea>
+                    </div>
+                    <div class="tm-editor-toolbar">
+                        <div class="tm-editor-meta" id="tmEditorMeta"></div>
+                        <div class="tm-editor-actions" style="display: flex; gap: 6px; align-items: center;">
+                            <button id="tmFontDown" title="Decrease font" class="tm-pill-btn" style="padding: 2px 8px; font-size: 10px; min-height: 22px;">A-</button>
+                            <button id="tmFontUp" title="Increase font" class="tm-pill-btn" style="padding: 2px 8px; font-size: 10px; min-height: 22px;">A+</button>
+                            <div style="width: 1px; height: 16px; background: #ced4da; margin: 0 2px;"></div>
+                            <button class="tm-editor-btn" id="tmFormatJson" type="button">Beautify</button>
+                            <button class="tm-editor-btn" id="tmMinifyJson" type="button">Minify</button>
+                        </div>
+                    </div>
+                    <button class="tm-btn tm-btn-run" id="tmGenerateSQL" style="width:100%;">GENERATE SQL</button>
+                    <div class="tm-output-container">
+                        <div style="font-size:11px; font-weight:600; margin-bottom:4px; color:#666;">Output SQL:</div>
+                        <div style="position: relative;">
+                            <button class="tm-copy-btn" id="tmCopySQL">${COPY_ICON}</button>
+                            <div class="tm-editor-container tm-output-container" style="height:180px; margin-bottom:0;">
+                                <div class="tm-highlight-layer" id="tmOutputHL"></div>
+                                <textarea class="tm-textarea" id="tmOutput" readonly
+                                    style="padding-right: 36px;" placeholder="Result SQL will appear here..." spellcheck="false"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+    } else {
+      panel.innerHTML = `
+                <div class="tm-header">
+                    <div class="tm-title">
+                        <svg viewBox="0 0 24 24" class="tm-modern-icon-text" style="width:20px; height:20px;"><path d="M12 2l1.6 4.8 4.8 1.6-4.8 1.6L12 14.8l-1.6-4.8L5.6 8.4l4.8-1.6L12 2zM19 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3zM7 16l0.8 2.4L10.2 19.2 7.8 20l-0.8 2.4L6.2 20 3.8 19.2l2.4-0.8L7 16z"/></svg>
+                        Automator
+                    </div>
+                    <button class="tm-close" id="tmClosePanel">&times;</button>
+                </div>
+                <div class="tm-tab-switcher">
+                    <select class="tm-select tm-tab-select" id="tmTabSelect">
+                        <option value="USER" ${currentTab === "USER" ? "selected" : ""}>User Creation Mode</option>
+                        <option value="SYNC" ${currentTab === "SYNC" ? "selected" : ""}>Approval Sync Mode</option>
+                        <option value="CLEANUP" ${currentTab === "CLEANUP" ? "selected" : ""}>Approval Flow Cleanup</option>
+                        <option value="ORG" ${currentTab === "ORG" ? "selected" : ""}>Org & Settings Mode</option>
+                        <option value="BUDGET" ${currentTab === "BUDGET" ? "selected" : ""}>Budget Automation Mode</option>
+                    </select>
+                </div>
+                <div class="tm-body tm-body-animate" id="tabContent">
+                    <div class="tm-options">
+                        <label class="tm-checkbox-container">
+                            <input type="checkbox" id="tmDryRun" checked ${isBotRunning ? "disabled" : ""}>
+                            <span class="tm-pill-text">Dry Run</span>
+                        </label>
+                        <label class="tm-checkbox-container">
+                            <input type="checkbox" id="tmUpdateExisting" ${isBotRunning ? "disabled" : ""}>
+                            <span class="tm-pill-text">Update</span>
+                        </label>
+                        <label class="tm-checkbox-container">
+                            <input type="checkbox" id="tmCreateMissing" checked ${isBotRunning ? "disabled" : ""}>
+                            <span class="tm-pill-text">Create</span>
+                        </label>
+                        <div style="flex:1; display:flex; justify-content:flex-end; gap:6px;">
+                            <button id="tmPrompt" title="Copy AI Prompt" class="tm-pill-btn primary">💡 PROMPT</button>
+                        </div>
+                    </div>
+                    <details class="tm-advanced-config" style="margin-bottom: 12px; border: 1px solid #ced4da; border-radius: 6px; padding: 4px 8px; background: #fafafa;">
+                        <summary style="font-size: 11px; font-weight: 600; color: #495057; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 4px;">
+                            <span>⚙️ Advanced Speed Config</span>
+                        </summary>
+                        <div class="tm-speed-grid" style="padding-top: 6px;">
+                            <div class="tm-speed-item">
+                                <label for="tmSearchDelay">Search Delay</label>
+                                <input class="tm-speed-input" type="number" min="100" max="10000" step="100" id="tmSearchDelay" />
+                            </div>
+                            <div class="tm-speed-item">
+                                <label for="tmFillDelay">Fill Delay</label>
+                                <input class="tm-speed-input" type="number" min="100" max="10000" step="100" id="tmFillDelay" />
+                            </div>
+                            <div class="tm-speed-item">
+                                <label for="tmSearchResultWait">Search Result</label>
+                                <input class="tm-speed-input" type="number" min="100" max="10000" step="100" id="tmSearchResultWait" />
+                            </div>
+                            <div class="tm-speed-item">
+                                <label for="tmOpenPageDelay">Open Page</label>
+                                <input class="tm-speed-input" type="number" min="100" max="10000" step="100" id="tmOpenPageDelay" />
+                            </div>
+                            <div class="tm-speed-item">
+                                <label for="tmDropdownWait">Dropdown Wait</label>
+                                <input class="tm-speed-input" type="number" min="100" max="10000" step="100" id="tmDropdownWait" />
+                            </div>
+                        </div>
+                    </details>
+                    <!-- Editor for Main Input -->
+                    <div class="tm-editor-container tm-input-container" id="tmMainEditor" style="height:260px;">
+                        <div class="tm-highlight-layer" id="tmInputHL"></div>
+                        <textarea class="tm-textarea" id="tmInput" placeholder="Paste JSON data..." spellcheck="false"></textarea>
+                    </div>
+                    <div class="tm-editor-toolbar">
+                        <div class="tm-editor-meta" id="tmEditorMeta"></div>
+                        <div class="tm-editor-actions" style="display: flex; gap: 6px; align-items: center;">
+                            <button id="tmFontDown" title="Decrease font" class="tm-pill-btn" style="padding: 2px 8px; font-size: 10px; min-height: 22px;">A-</button>
+                            <button id="tmFontUp" title="Increase font" class="tm-pill-btn" style="padding: 2px 8px; font-size: 10px; min-height: 22px;">A+</button>
+                            <div style="width: 1px; height: 16px; background: #ced4da; margin: 0 2px;"></div>
+                            <button class="tm-editor-btn" id="tmFormatJson" type="button">Beautify</button>
+                            <button class="tm-editor-btn" id="tmMinifyJson" type="button">Minify</button>
+                        </div>
+                    </div>
+                    <div class="tm-actions">
+                        <button class="tm-btn tm-btn-run" id="tmStartBot">Run</button>
+                        <button class="tm-btn tm-btn-stop" id="tmStopBot" style="display:${showLog ? "block" : "none"};">Stop</button>
+                    </div>
+                    <div class="tm-status" id="tmBotStatus" style="color:${statusColor};${isBotRunning ? "animation:tm-pulse-light 1.5s infinite;" : ""}">${statusText}</div>
+                    <div class="tm-log" id="tmLogOutput" style="display:${showLog ? "block" : "none"};"></div>
+                </div>
+            `;
+    }
+
+    if (document.getElementById("tmTabSelect")) {
+      document.getElementById("tmTabSelect").onchange = (e) => {
+        savePanelState();
+        currentTab = e.target.value;
+        tmStorage.setItem("tm_bot_tab", currentTab);
+        renderPanel();
+      };
+    }
+    document.getElementById("tmClosePanel").onclick = () => {
+      savePanelState();
+      panel.classList.remove("tm-visible");
+      tmStorage.setItem("tm_bot_visible", "false");
+    };
+
+    const textarea = document.getElementById("tmInput");
+    const outputArea = document.getElementById("tmOutput");
+    const hlInput = document.getElementById("tmInputHL");
+    const hlOutput = document.getElementById("tmOutputHL");
+    const editorMeta = document.getElementById("tmEditorMeta");
+    let codeEditor = null;
+    let outputEditor = null;
+
+    const syncHighlight = (ta, hl, lang) => {
+      if (!hl) return;
+      hl.innerHTML =
+        highlightCode(ta.value, lang) + (ta.value.endsWith("\n") ? " " : "");
+      hl.scrollTop = ta.scrollTop;
+      hl.scrollLeft = ta.scrollLeft;
+    };
+    const getEditorValue = () =>
+      codeEditor ? codeEditor.getValue() : textarea.value;
+    const setEditorValue = (value) => {
+      if (codeEditor) codeEditor.setValue(value);
+      else textarea.value = value;
+    };
+    const focusEditor = () => {
+      if (codeEditor) codeEditor.focus();
+      else textarea.focus();
+    };
+
+    // Height persistence (Apply to containers)
+    const inputContainer = textarea ? textarea.closest(".tm-editor-container") : null;
+    const outputContainer = outputArea ? outputArea.closest(".tm-editor-container") : null;
+
+    const savedInputHeight = tmStorage.getItem(`tm_bot_height_${currentTab.toLowerCase()}_input`);
+    if (savedInputHeight && parseInt(savedInputHeight) > 50) {
+      if (inputContainer) {
+        inputContainer.style.height = savedInputHeight + "px";
+      }
+    }
+
+    const savedOutputHeight = tmStorage.getItem(`tm_bot_height_${currentTab.toLowerCase()}_output`);
+    if (savedOutputHeight && parseInt(savedOutputHeight) > 50) {
+      if (outputContainer) {
+        outputContainer.style.height = savedOutputHeight + "px";
+      }
+    }
+
+    // Set up ResizeObserver to automatically persist vertical sizes
+    if (inputContainer && window.ResizeObserver) {
+      const inputObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          const offsetHeight = entry.target.offsetHeight;
+          if (offsetHeight > 50) {
+            tmStorage.setItem(`tm_bot_height_${currentTab.toLowerCase()}_input`, offsetHeight);
+          }
+        }
+      });
+      inputObserver.observe(inputContainer);
+    }
+
+    if (outputContainer && window.ResizeObserver) {
+      const outputObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          const offsetHeight = entry.target.offsetHeight;
+          if (offsetHeight > 50) {
+            tmStorage.setItem(`tm_bot_height_${currentTab.toLowerCase()}_output`, offsetHeight);
+          }
+        }
+      });
+      outputObserver.observe(outputContainer);
+    }
+
+    const getInputStorageKey = () =>
+      isBudgetTab
+        ? "tm_bot_budget_json"
+        : isUserTab
+          ? "tm_bot_user_json"
+          : currentTab === "ORG"
+            ? "tm_bot_org_json"
+            : currentTab === "CLEANUP"
+              ? "tm_bot_cleanup_json"
+              : "tm_bot_sync_json";
+    const persistInput = (value) =>
+      tmStorage.setItem(getInputStorageKey(), value);
+    const updateEditorMeta = () => {
+      if (!editorMeta) return;
+      const value = getEditorValue() || "";
+      const lineCount = value.length === 0 ? 1 : value.split("\n").length;
+      const charCount = value.length;
+      const trimmed = value.trim();
+      let stateText = "";
+      let stateColor = "#6c757d";
+      if (trimmed.length > 0) {
+        try {
+          JSON.parse(trimmed);
+          stateText = "JSON OK";
+          stateColor = "#28a745";
+        } catch {
+          stateText = "JSON Invalid";
+          stateColor = "#dc3545";
+        }
+      }
+      editorMeta.textContent = `Lines ${lineCount} | Chars ${charCount}${stateText ? ` | ${stateText}` : ""}`;
+      editorMeta.style.color = stateColor;
+    };
+    const applyInputValue = (value) => {
+      setEditorValue(value);
+      persistInput(value);
+      updateEditorMeta();
+    };
+    if (isBudgetTab) {
+      setEditorValue(tmStorage.getItem("tm_bot_budget_json") || "");
+      if (outputArea)
+        outputArea.value = tmStorage.getItem("tm_bot_budget_output") || "";
+    } else {
+      setEditorValue(tmStorage.getItem(getInputStorageKey()) || "");
+    }
+
+    if (window.CodeMirror) {
+      codeEditor = window.CodeMirror.fromTextArea(textarea, {
+        mode: { name: "javascript", json: true },
+        lineNumbers: true,
+        lineWrapping: tmStorage.getItem("tm_bot_wrap") === "true",
+        indentUnit: 4,
+        tabSize: 4,
+        viewportMargin: Infinity,
+        extraKeys: {
+          Tab: (cm) => cm.replaceSelection("    ", "end"),
+          "Shift-Tab": "indentLess",
+        },
+      });
+      const wrapper = codeEditor.getWrapperElement();
+      wrapper.addEventListener("mouseup", savePanelState);
+      codeEditor.on("change", () => {
+        persistInput(codeEditor.getValue());
+        updateEditorMeta();
+        const genBtn = document.getElementById("tmGenerateSQL");
+        if (genBtn && genBtn.innerText === "SQL GENERATED!") {
+          genBtn.innerText = "GENERATE SQL";
+          genBtn.style.backgroundColor = "";
+          genBtn.style.borderColor = "";
+          genBtn.style.color = "";
+        }
+      });
+      codeEditor.on("keydown", (_, e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          const runBtn = isBudgetTab
+            ? document.getElementById("tmGenerateSQL")
+            : document.getElementById("tmStartBot");
+          if (runBtn) runBtn.click();
+        }
+      });
+      codeEditor.setSize(null, "100%");
+      setEditorValue(tmStorage.getItem(getInputStorageKey()) || "");
+
+      if (outputArea) {
+        outputEditor = window.CodeMirror.fromTextArea(outputArea, {
+          mode: "text/x-sql",
+          lineNumbers: true,
+          lineWrapping: tmStorage.getItem("tm_bot_wrap") === "true",
+          readOnly: "nocursor",
+          viewportMargin: Infinity,
+        });
+        outputEditor.setSize(null, "100%");
+        const initialVal = tmStorage.getItem("tm_bot_budget_output") || "";
+        outputEditor.setValue(initialVal);
+      }
+    } else {
+      textarea.oninput = (e) => {
+        persistInput(e.target.value);
+        syncHighlight(textarea, hlInput, "json");
+        updateEditorMeta();
+        const genBtn = document.getElementById("tmGenerateSQL");
+        if (genBtn && genBtn.innerText === "SQL GENERATED!") {
+          genBtn.innerText = "GENERATE SQL";
+          genBtn.style.backgroundColor = "";
+          genBtn.style.borderColor = "";
+          genBtn.style.color = "";
+        }
+      };
+      textarea.onscroll = () => syncHighlight(textarea, hlInput, "json");
+      textarea.onkeydown = (e) => {
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const value = textarea.value;
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+
+          if (start === end && !e.shiftKey) {
+            const withIndent =
+              value.slice(0, start) + "    " + value.slice(end);
+            applyInputValue(withIndent);
+            textarea.selectionStart = start + 4;
+            textarea.selectionEnd = start + 4;
+            return;
+          }
+
+          const blockStart = value.lastIndexOf("\n", start - 1) + 1;
+          const blockEndIdx = value.indexOf("\n", end);
+          const blockEnd = blockEndIdx === -1 ? value.length : blockEndIdx;
+          const selectedBlock = value.slice(blockStart, blockEnd);
+          const updatedBlock = selectedBlock
+            .split("\n")
+            .map((line) => {
+              if (!e.shiftKey) return "    " + line;
+              if (line.startsWith("    ")) return line.slice(4);
+              if (line.startsWith("\t")) return line.slice(1);
+              return line.replace(/^ {1,3}/, "");
+            })
+            .join("\n");
+
+          const nextValue =
+            value.slice(0, blockStart) + updatedBlock + value.slice(blockEnd);
+          applyInputValue(nextValue);
+          const delta = updatedBlock.length - selectedBlock.length;
+          textarea.selectionStart = blockStart;
+          textarea.selectionEnd = Math.max(blockStart, blockEnd + delta);
+          return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          const runBtn = isBudgetTab
+            ? document.getElementById("tmGenerateSQL")
+            : document.getElementById("tmStartBot");
+          if (runBtn) runBtn.click();
+        }
+      };
+    }
+
+    if (outputArea) {
+      outputArea.onscroll = () => syncHighlight(outputArea, hlOutput, "sql");
+    }
+
+    // Wrap persistence
+    const wrapCheck = document.getElementById("tmWrapText");
+    const updateCheck = document.getElementById("tmUpdateExisting");
+    const createCheck = document.getElementById("tmCreateMissing");
+    const dryRunCheck = document.getElementById("tmDryRun");
+
+    const updateWrap = () => {
+      const wrap = wrapCheck.checked ? "pre-wrap" : "pre";
+      textarea.style.whiteSpace = wrap;
+      if (codeEditor) codeEditor.setOption("lineWrapping", wrapCheck.checked);
+      if (hlInput) hlInput.style.whiteSpace = wrap;
+      if (outputArea) outputArea.style.whiteSpace = wrap;
+      if (hlOutput) hlOutput.style.whiteSpace = wrap;
+      if (outputEditor)
+        outputEditor.setOption("lineWrapping", wrapCheck.checked);
+      tmStorage.setItem("tm_bot_wrap", wrapCheck.checked);
+      syncHighlight(textarea, hlInput, "json");
+      if (outputArea && !outputEditor)
+        syncHighlight(outputArea, hlOutput, "sql");
+    };
+
+    if (wrapCheck) {
+      const savedWrap = tmStorage.getItem("tm_bot_wrap");
+      wrapCheck.checked = savedWrap === true || savedWrap === "true";
+      updateWrap();
+      wrapCheck.onchange = updateWrap;
+    }
+
+    if (updateCheck) {
+      const savedUpdate = tmStorage.getItem("tm_bot_update_existing");
+      updateCheck.checked = savedUpdate === true || savedUpdate === "true";
+      updateCheck.onchange = () =>
+        tmStorage.setItem("tm_bot_update_existing", updateCheck.checked);
+    }
+
+    if (createCheck) {
+      const savedCreate = tmStorage.getItem("tm_bot_create_missing");
+      createCheck.checked =
+        savedCreate === null
+          ? true
+          : savedCreate === true || savedCreate === "true";
+      createCheck.onchange = () =>
+        tmStorage.setItem("tm_bot_create_missing", createCheck.checked);
+    }
+
+    if (dryRunCheck) {
+      const savedDryRun = tmStorage.getItem("tm_bot_dry_run");
+      dryRunCheck.checked =
+        savedDryRun === null
+          ? true
+          : savedDryRun === true || savedDryRun === "true";
+      dryRunCheck.onchange = () =>
+        tmStorage.setItem("tm_bot_dry_run", dryRunCheck.checked);
+    }
+
+    const searchDelayInput = document.getElementById("tmSearchDelay");
+    const fillDelayInput = document.getElementById("tmFillDelay");
+    const searchResultWaitInput = document.getElementById("tmSearchResultWait");
+    const openPageDelayInput = document.getElementById("tmOpenPageDelay");
+    const dropdownWaitInput = document.getElementById("tmDropdownWait");
+    const bindDelayInput = (input, storageKey, fallback) => {
+      if (!input) return;
+      const getCurrent = () => readDelaySetting(storageKey, fallback);
+      const saveCurrent = () => {
+        const parsed = parseInt(input.value || "", 10);
+        const normalized = Number.isFinite(parsed)
+          ? clamp(parsed, 100, 10000)
+          : fallback;
+        input.value = String(normalized);
+        tmStorage.setItem(storageKey, String(normalized));
+      };
+      input.value = String(getCurrent());
+      input.onchange = saveCurrent;
+      input.onblur = saveCurrent;
+      input.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          const step = e.shiftKey ? 100 : 50;
+          const dir = e.deltaY < 0 ? 1 : -1;
+          const current = parseInt(input.value || "", 10) || fallback;
+          input.value = String(clamp(current + dir * step, 100, 10000));
+          saveCurrent();
+        },
+        { passive: false },
+      );
+    };
+    bindDelayInput(searchDelayInput, "tm_bot_search_delay", 800);
+    bindDelayInput(fillDelayInput, "tm_bot_fill_delay", 300);
+    bindDelayInput(searchResultWaitInput, "tm_bot_search_result_wait", 1600);
+    bindDelayInput(openPageDelayInput, "tm_bot_open_page_delay", 600);
+    bindDelayInput(dropdownWaitInput, "tm_bot_dropdown_wait", 1200);
+
+    // Font size for Input only (Shared)
+    let fontSize = parseInt(tmStorage.getItem("tm_bot_font_size")) || 11;
+    const updateFontSize = (size) => {
+      fontSize = Math.max(8, Math.min(30, size));
+      const fs = fontSize + "px";
+      textarea.style.fontSize = fs;
+      if (codeEditor) {
+        const cmEl = codeEditor.getWrapperElement();
+        cmEl.style.fontSize = fs;
+        codeEditor.refresh();
+      }
+      if (outputEditor) {
+        const cmEl = outputEditor.getWrapperElement();
+        cmEl.style.fontSize = fs;
+        outputEditor.refresh();
+      }
+      if (hlInput) hlInput.style.fontSize = fs;
+      if (outputArea) outputArea.style.fontSize = fs;
+      tmStorage.setItem("tm_bot_font_size", fontSize);
+      if (hlOutput) hlOutput.style.fontSize = fs;
+    };
+    updateFontSize(fontSize);
+    if (document.getElementById("tmFontUp"))
+      document.getElementById("tmFontUp").onclick = () =>
+        updateFontSize(fontSize + 1);
+    if (document.getElementById("tmFontDown"))
+      document.getElementById("tmFontDown").onclick = () =>
+        updateFontSize(fontSize - 1);
+
+    if (document.getElementById("tmPrompt")) {
+      document.getElementById("tmPrompt").onclick = async (e) => {
+        const btn = e.target;
+        let promptText = "";
+        if (currentTab === "USER") {
+          promptText =
+            "Convert this raw text list of users into a JSON array of objects. Keys: 'name', 'email', 'password', 'phone', 'employee_code', 'department', 'job_title', 'role', 'approving_manager'. DEFAULTS if missing: phone='0123456789', role='Thành viên', password='123456' (or employee code if known). Output ONLY the raw JSON array.";
+        } else if (currentTab === "SYNC") {
+          promptText =
+            'Convert this data into a JSON array for approval flows. Structure: [{ "target_user_emails": ["user@email.com"], "approval_steps": [{ "step_number": 1, "approver_email": "Email or Name" }] }]. The \'approver_email\' field can contain either an email OR a name. Output ONLY the raw JSON array.';
+        } else if (currentTab === "ORG") {
+          promptText =
+            "Convert this data into a JSON array of organization units (Branch, Department, Job Title). Keys: 'type' (BRANCH|DEPARTMENT|JOB_TITLE), 'name', 'code' (optional), 'address' (for branch), 'taxCode' (for branch), 'branch' (parent branch for department). Output ONLY the raw JSON array.";
+        } else if (currentTab === "CLEANUP") {
+          promptText =
+            'Convert this raw text list of users/emails into a JSON array for Smart Cleanup. Use the SYNC format so the bot can fallback to updating if deletion is restricted. Structure: [{ "target_user_emails": ["user@email.com"], "approval_steps": [{ "step_number": 1, "approver_email": "Approver Name/Email" }] }]. Output ONLY the raw JSON array.';
+        } else if (currentTab === "BUDGET") {
+          promptText =
+            "Convert this data into a JSON object where keys are budget levels (e.g., '550', '650', '750') and values are arrays of email strings. Example: { \"550\": [\"user@email.com\"], \"650\": [] }. Output ONLY the raw JSON.";
+        }
+
+        try {
+          await navigator.clipboard.writeText(promptText);
+          const originalText = btn.innerHTML;
+          btn.innerHTML = "✅ COPIED";
+          btn.style.color = "#28a745";
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.color = "#ff3366";
+          }, 1500);
+        } catch (err) {
+          alert("Could not copy prompt: " + err);
+        }
+      };
+    }
+
+    const formatBtn = document.getElementById("tmFormatJson");
+    const minifyBtn = document.getElementById("tmMinifyJson");
+    const transformJsonInput = (spacing) => {
+      const raw = getEditorValue().trim();
+      if (!raw) return;
+      try {
+        const transformed = JSON.stringify(JSON.parse(raw), null, spacing);
+        applyInputValue(transformed);
+        focusEditor();
+      } catch (err) {
+        alert(`JSON Error: ${err.message}`);
+      }
+    };
+    if (formatBtn) formatBtn.onclick = () => transformJsonInput(2);
+    if (minifyBtn) minifyBtn.onclick = () => transformJsonInput(0);
+
+    // Initial sync
+    syncHighlight(textarea, hlInput, "json");
+    updateEditorMeta();
+    if (outputArea) syncHighlight(outputArea, hlOutput, "sql");
+
+    // UI Event Listeners for Run/Generate
+    if (isBudgetTab) {
+      document.getElementById("tmGenerateSQL").onclick = () => {
+        try {
+          const data = JSON.parse(getEditorValue());
+          const sql = generateBudgetSQL(data);
+
+          if (outputEditor) {
+            outputEditor.setValue(sql);
+          } else {
+            outputArea.value = sql;
+          }
+          if (outputArea && !outputEditor) {
+            syncHighlight(outputArea, hlOutput, "sql");
+          }
+          tmStorage.setItem("tm_bot_budget_output", sql);
+
+          // Premium Tactile Success Feedback
+          const genBtn = document.getElementById("tmGenerateSQL");
+          genBtn.innerText = "SQL GENERATED!";
+          genBtn.style.backgroundColor = "#28a745";
+          genBtn.style.borderColor = "#28a745";
+          genBtn.style.color = "#fff";
+
+          const flashTarget =
+            outputArea.closest(".tm-editor-container") || outputArea;
+          flashTarget.classList.add("tm-pulse-border");
+
+          setTimeout(() => {
+            flashTarget.classList.remove("tm-pulse-border");
+          }, 1000);
+        } catch (e) {
+          alert("Invalid JSON input!");
+        }
+      };
+      document.getElementById("tmCopySQL").onclick = () => {
+        const textToCopy = outputEditor
+          ? outputEditor.getValue()
+          : outputArea.value;
+        navigator.clipboard
+          .writeText(textToCopy)
+          .then(() => {
+            const btn = document.getElementById("tmCopySQL");
+            btn.innerHTML = CHECK_ICON;
+            btn.classList.add("tm-copied");
+            setTimeout(() => {
+              btn.innerHTML = COPY_ICON;
+              btn.classList.remove("tm-copied");
+            }, 2000);
+          })
+          .catch((err) => {
+            console.error("Failed to copy: ", err);
+          });
+      };
+    } else {
+      document.getElementById("tmStartBot").onclick = () => {
+        try {
+          const data = JSON.parse(getEditorValue());
+          const items = flattenData(data, currentTab);
+          console.log(`[BOT] Start! flattened ${items.length} tasks`);
+          startBotLoop(
+            items,
+            0,
+            document.getElementById("tmDryRun").checked,
+            currentTab,
+          );
+        } catch (e) {
+          alert("JSON Error: " + e.message);
+        }
+      };
+      document.getElementById("tmStopBot").onclick = () => {
+        console.log("[BOT] Execution state reset. Reloading shell...");
+        savePanelState();
+
+        // Immediate feedback in the panel
+        const stopBtn = document.getElementById("tmStopBot");
+        if (stopBtn) stopBtn.disabled = true;
+        const statusEl = document.getElementById("tmBotStatus");
+        if (statusEl) {
+          statusEl.innerText = "Stopping...";
+          statusEl.style.color = "#dc3545";
+        }
+        const icon = document.getElementById("tm-bot-icon");
+        if (icon) {
+          icon.classList.remove("tm-running");
+          icon.classList.add("tm-stopping");
+        }
+
+        // Delay clearing the running state so loader completes its round
+        setTimeout(() => {
+          isBotRunning = false;
+          tmStorage.removeItem("tm_bot_exec_state");
+          if (icon) icon.classList.remove("tm-stopping");
+          injectUI();
+          setTimeout(() => {
+            window.location.href = window.location.origin;
+          }, 800); // 800ms for closing + fading transitions to finish completely
+        }, 1200);
+      };
+    }
+  }
+
+  function highlightCode(text, lang) {
+    if (!text) return "";
+    const escaped = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    if (lang === "json") {
+      return escaped.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        function (match) {
+          let cls = "hl-num";
+          if (/^"/.test(match)) {
+            if (/:$/.test(match)) cls = "hl-key";
+            else cls = "hl-string";
+          } else if (/true|false/.test(match)) {
+            cls = "hl-bool";
+          } else if (/null/.test(match)) {
+            cls = "hl-num";
+          }
+          return '<span class="' + cls + '">' + match + "</span>";
+        },
+      );
+    } else if (lang === "sql") {
+      const keywords =
+        /\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|AND|OR|JOIN|ON|SET|IN|EXISTS|NOT|CURRENT_TIMESTAMP|INTO|VALUES|CREATE|TABLE|DATABASE|ALTER|DROP|TRUNCATE)\b/gi;
+      return escaped
+        .replace(/(--.*)/g, '<span class="hl-comment">$1</span>')
+        .replace(/('[^']*')/g, '<span class="hl-string">$1</span>')
+        .replace(keywords, '<span class="hl-keyword">$1</span>');
+    }
+    return escaped;
+  }
+
+  function flattenData(data, tab) {
+    if (tab !== "SYNC" && tab !== "CLEANUP")
+      return Array.isArray(data) ? data : [data];
+    const raw = Array.isArray(data) ? data : [data];
+    const flat = [];
+    raw.forEach((group) => {
+      if (group.target_user_emails && Array.isArray(group.target_user_emails)) {
+        group.target_user_emails.forEach((email) => {
+          flat.push({
+            email: email,
+            steps: group.approval_steps || group.steps || [],
+            notes: group.notes,
+          });
+        });
+      } else if (group.email) {
+        flat.push(group);
+      }
+    });
+    return flat;
+  }
+
+  function generateBudgetSQL(emailsJson) {
+    const config = {
+      tiers: {
+        "550k": {
+          name: "550k",
+          hotel_budget: 550000,
+          province_budget:
+            '[{"provinceId":33,"budget":650000},{"provinceId":11,"budget":650000},{"provinceId":50,"budget":650000},{"provinceId":38,"budget":650000},{"provinceId":43,"budget":550000,"districtBudgets":[{"districtId":414,"budget":650000}]},{"provinceId":3,"budget":650000},{"provinceId":1,"budget":550000,"districtBudgets":[{"districtId":275,"budget":650000}]},{"provinceId":42,"budget":550000,"districtBudgets":[{"districtId":382,"budget":600000}]},{"provinceId":6,"budget":550000,"districtBudgets":[{"districtId":344,"budget":600000}]},{"provinceId":2,"budget":550000,"districtBudgets":[{"districtId":501,"budget":600000},{"districtId":446,"budget":600000}]},{"provinceId":20,"budget":550000,"districtBudgets":[{"districtId":155,"budget":600000}]},{"provinceId":32,"budget":550000,"districtBudgets":[{"districtId":50,"budget":600000}]},{"provinceId":15,"budget":550000,"districtBudgets":[{"districtId":686,"budget":600000}]},{"provinceId":10,"budget":550000,"districtBudgets":[{"districtId":235,"budget":600000}]},{"provinceId":7,"budget":550000,"districtBudgets":[{"districtId":667,"budget":600000}]},{"provinceId":34,"budget":550000,"districtBudgets":[{"districtId":239,"budget":600000}]},{"provinceId":5,"budget":550000,"districtBudgets":[{"districtId":494,"budget":600000}]},{"provinceId":16,"budget":550000,"districtBudgets":[{"districtId":574,"budget":600000}]},{"provinceId":24,"budget":550000,"districtBudgets":[{"districtId":35,"budget":600000}]},{"provinceId":55,"budget":550000,"districtBudgets":[{"districtId":567,"budget":600000}]},{"provinceId":40,"budget":550000,"districtBudgets":[{"districtId":72,"budget":600000}]}]',
+        },
+        "650k": {
+          name: "650k",
+          hotel_budget: 650000,
+          province_budget:
+            '[{"provinceId":33,"budget":850000,"districtBudgets":[],"maxHotelStar":5},{"provinceId":11,"budget":850000,"districtBudgets":[],"maxHotelStar":5},{"provinceId":50,"budget":850000,"districtBudgets":[],"maxHotelStar":5},{"provinceId":38,"budget":850000,"districtBudgets":[],"maxHotelStar":5},{"provinceId":43,"budget":650000,"districtBudgets":[{"districtId":414,"budget":850000,"maxHotelStar":5}],"maxHotelStar":5},{"provinceId":3,"budget":850000,"districtBudgets":[],"maxHotelStar":5},{"provinceId":1,"budget":750000,"districtBudgets":[{"districtId":275,"budget":850000,"maxHotelStar":5}],"maxHotelStar":5},{"provinceId":42,"budget":650000,"districtBudgets":[{"districtId":382,"budget":750000,"maxHotelStar":5}],"maxHotelStar":5},{"provinceId":6,"budget":650000,"districtBudgets":[{"districtId":344,"budget":750000,"maxHotelStar":5}],"maxHotelStar":5},{"provinceId":2,"budget":650000,"districtBudgets":[{"districtId":501,"budget":750000,"maxHotelStar":5},{"districtId":446,"budget":750000,"maxHotelStar":5}],"maxHotelStar":5},{"provinceId":20,"budget":650000,"districtBudgets":[{"districtId":155,"budget":750000,"maxHotelStar":5}],"maxHotelStar":5},{"provinceId":32,"budget":650000,"districtBudgets":[{"districtId":50,"budget":750000,"maxHotelStar":5}],"maxHotelStar":5},{"provinceId":15,"budget":650000,"districtBudgets":[{"districtId":686,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5},{"provinceId":10,"budget":650000,"districtBudgets":[{"districtId":235,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5},{"provinceId":7,"budget":650000,"districtBudgets":[{"districtId":667,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5},{"provinceId":34,"budget":650000,"districtBudgets":[{"districtId":239,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5},{"provinceId":5,"budget":650000,"districtBudgets":[{"districtId":494,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5},{"provinceId":16,"budget":650000,"districtBudgets":[{"districtId":574,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5},{"provinceId":24,"budget":650000,"districtBudgets":[{"districtId":35,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5},{"provinceId":55,"budget":650000,"districtBudgets":[{"districtId":567,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5},{"provinceId":40,"budget":650000,"districtBudgets":[{"districtId":72,"budget":750000,"maxHotelStar":5}], "maxHotelStar":5}]',
+        },
+        "750k": {
+          name: "750k",
+          hotel_budget: 750000,
+          province_budget:
+            '[{"provinceId":33,"budget":1100000},{"provinceId":11,"budget":1100000},{"provinceId":50,"budget":1100000},{"provinceId":38,"budget":1100000},{"provinceId":43,"budget":750000,"districtBudgets":[{"districtId":414,"budget":1100000}]},{"provinceId":3,"budget":1100000},{"provinceId":1,"budget":750000,"districtBudgets":[{"districtId":275,"budget":1100000}]},{"provinceId":42,"budget":750000,"districtBudgets":[{"districtId":382,"budget":900000}]},{"provinceId":6,"budget":750000,"districtBudgets":[{"districtId":344,"budget":900000}]},{"provinceId":2,"budget":750000,"districtBudgets":[{"districtId":501,"budget":900000},{"districtId":446,"budget":900000}]},{"provinceId":20,"budget":750000,"districtBudgets":[{"districtId":155,"budget":900000}]},{"provinceId":32,"budget":750000,"districtBudgets":[{"districtId":50,"budget":900000}]},{"provinceId":15,"budget":750000,"districtBudgets":[{"districtId":686,"budget":900000}]},{"provinceId":10,"budget":750000,"districtBudgets":[{"districtId":235,"budget":900000}]},{"provinceId":7,"budget":750000,"districtBudgets":[{"districtId":667,"budget":900000}]},{"provinceId":34,"budget":750000,"districtBudgets":[{"districtId":239,"budget":900000}]},{"provinceId":5,"budget":750000,"districtBudgets":[{"districtId":494,"budget":900000}]},{"provinceId":16,"budget":750000,"districtBudgets":[{"districtId":574,"budget":900000}]},{"provinceId":24,"budget":750000,"districtBudgets":[{"districtId":35,"budget":900000}]},{"provinceId":55,"budget":750000,"districtBudgets":[{"districtId":567,"budget":750000,"maxHotelStar":5}]},{"provinceId":40,"budget":750000,"districtBudgets":[{"districtId":72,"budget":900000}]}]',
+        },
+      },
+    };
+
+    let output = "-- BATCH BUDGET UPDATE SCRIPT\n-- Generated via Bot UI\n\n";
+
+    for (const level of ["550", "650", "750"]) {
+      const emails = emailsJson[level] || [];
+      if (emails.length === 0) continue;
+
+      const tierKey = `${level}k`;
+      const tier = config.tiers[tierKey];
+      if (!tier) continue;
+
+      const emailsSql = emails.map((e) => `'${e}'`).join(", ");
+      const provinceBudgetSql = tier.province_budget.replace(/'/g, "''");
+
+      output += `-- ========================================\n`;
+      output += `-- Automated Budget Update for Tier: ${tier.name}\n`;
+      output += `-- ========================================\n`;
+      output += `-- 1. Update Global Policies\n`;
+      output += `UPDATE user_budget_policies ubp JOIN user u ON ubp.user_id = u.id SET ubp.hotel_budget = ${tier.hotel_budget}, ubp.updated_by = 'Admin Office', ubp.updated = CURRENT_TIMESTAMP WHERE u.email IN (${emailsSql});\n\n`;
+      output += `-- 2. Insert Missing Global Policies\n`;
+      output += `INSERT INTO user_budget_policies (company_id, user_id, flight_budget, hotel_budget, budget_per_month, allow_all_ticket_classes, allow_all_airlines, max_hotel_stars, currency_code, status, created_by, updated_by) SELECT u.company_id, u.id, 0, ${tier.hotel_budget}, -1, 1, 1, 5, 'VND', 0, 'Admin Office', 'Admin Office' FROM user u WHERE u.email IN (${emailsSql}) AND NOT EXISTS (SELECT 1 FROM user_budget_policies ubp WHERE ubp.user_id = u.id);\n\n`;
+      output += `-- 3. Update Regional Overrides\n`;
+      output += `UPDATE user_budget_policies_by_regions r JOIN user_budget_policies ubp ON r.policies_id = ubp.id JOIN user u ON ubp.user_id = u.id SET r.budget = ${tier.hotel_budget}, r.province_budget = '${provinceBudgetSql}' WHERE u.email IN (${emailsSql});\n\n`;
+      output += `-- 4. Insert Missing Regional Overrides\n`;
+      output += `INSERT INTO user_budget_policies_by_regions (policies_id, budget, country_code, product_type, province_budget, max_hotel_star) SELECT ubp.id, ${tier.hotel_budget}, 'VN', 'hotel', '${provinceBudgetSql}', 5 FROM user_budget_policies ubp JOIN user u ON ubp.user_id = u.id WHERE u.email IN (${emailsSql}) AND NOT EXISTS (SELECT 1 FROM user_budget_policies_by_regions r WHERE r.policies_id = ubp.id);\n\n`;
+    }
+
+    return output;
+  }
+
+  ensureCodeMirrorLoaded().then((loaded) => {
+    if (loaded) {
+      const panel = document.getElementById("tm-bot-panel");
+      if (panel && panel.classList.contains("tm-visible")) renderPanel();
+    }
+  });
+
+  setTimeout(() => {
+    const saved = tmStorage.getItem("tm_bot_exec_state");
+    if (saved) {
+      try {
+        const s = JSON.parse(saved);
+        isBotRunning = true;
+        currentTab = s.tab;
+        injectUI();
+        renderPanel();
+        startBotLoop(s.items, s.currentIndex, s.isDryRun, s.tab);
+      } catch (e) {
+        tmStorage.removeItem("tm_bot_exec_state");
+      }
+    } else {
+      injectUI();
+    }
+  }, 1500);
+
+  setInterval(injectUI, 2000);
+})();

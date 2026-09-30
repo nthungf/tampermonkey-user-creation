@@ -1,0 +1,32 @@
+[
+  {
+    "target_user_emails": [
+      "taphuongyen1604@gmail.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "Trịnh Sơn Tùng"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  },
+  {
+    "target_user_emails": [
+      "akingocdiep@gmail.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "Trịnh Sơn Tùng"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  }
+]

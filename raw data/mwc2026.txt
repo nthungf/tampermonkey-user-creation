@@ -1,0 +1,17 @@
+No  LC With Staff Code  Name    Position    Tel.No  Email (HD)  Email (Old)
+1   HD  ET0447  Nguyễn Hải Yến  KAM 1   0904 133 055    MegaKAM1@hdvnpharma.com Yen.Nguyenhai@megawecare.com
+2   HD  ET0452  Tiền Thiên Bình KAE 2   0981023716  MegaKAE2@hdvnpharma.com tienthienbinh.dkh@gmail.com
+3   HD  ET0457  Nguyễn Thu Trang    KAE 4   0936606111  MegaKAE4@hdvnpharma.com nguyenthutrang.dkh@gmail.com
+4   HD  ET0456  Đặng Thanh Tùng KAE 5   07999.06888 MegaKAE5@hdvnpharma.com tungdt275@gmail.com
+5   HD  ET0441  Nguyễn Đức Anh  KAM 2   0935123707  MegaKAM2@hdvnpharma.com Anh.nguyenduc@megawecare.com
+6   HD  ET0455  Lô Văn Quý  KAE 6   0988987805  MegaKAE6@hdvnpharma.com quypharma92@gmail.com
+7   HD  ET0465  Nguyễn Vũ Ánh Tuyết KAE 7   0329181541  MegaKAE7@hdvnpharma.com anhtuyet19972015@gmail.com
+8   HD  ET0448  Lê Văn Chấp KAE 8   0967200910  MegaKAE8@hdvnpharma.com chaple261996@gmail.com
+9   HD  ET0458  Phan Trí Cương  KAE 9   0906875455  MegaKAE9@hdvnpharma.com phantricuong1307@gmail.com
+10  HD  ET0434  Bùi Quốc Đại    KAM 3   0907378804  MegaKAM3@hdvnpharma.com dai.buiquoc@megawecare.com
+11  HD  ET0463  Trần Thị Thơm   KAE 10  0903573354  MegaKAE10@hdvnpharma.com    thom76nt@gmail.com
+12  HD  ET0464  Văn Đình Thanh  KAE 11  0972452432  MegaKAE11@hdvnpharma.com    vanthanhavt@gmail.com
+13  HD  ET0449  Phan Thị Thoại Như  KAE 13  0978400039  MegaKAE13@hdvnpharma.com    thithoainhu@gmail.com
+14  HD  ET0444  Huỳnh Đình Bồ Công Anh  KAE 14  0934 108 879    MegaKAE14@hdvnpharma.com    dsboconganh@gmail.com
+15  HD  ET0462  Ngô Minh Mẫn    KAM 4   0917772289  MegaKAM4@hdvnpharma.com 
+16  HD  ET0450  Nguyễn Văn Bé   KAE 15  0907599097  MegaKAE15@hdvnpharma.com    nguyenvan.be09121986@gmail.com

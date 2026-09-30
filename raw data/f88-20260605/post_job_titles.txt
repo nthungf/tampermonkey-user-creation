@@ -1,0 +1,22 @@
+curl 'https://gate.tripi.vn/tripione/companies/settings/job-titles' \
+  -X POST \
+  -H 'User-Agent: ' \
+  -H 'Accept: */*' \
+  -H 'Accept-Language: vi' \
+  -H 'Accept-Encoding: gzip, deflate, br, zstd' \
+  -H 'Referer: https://agents.mytour.vn/' \
+  -H 'Content-Type: application/json' \
+  -H 'login-token: vqw3w7e8smbuxjbd0so8-2da77c21-d563-4a91-942a-3e94c083298b' \
+  -H 'appHash: n/9MHf6jfJHsQNJJZt22H9E58m7jbDfx0lzUM7KkfxM=' \
+  -H 'appId: tripone-web' \
+  -H 'version: 1.0' \
+  -H 'caid: 17' \
+  -H 'device-info: Tripi_One' \
+  -H 'device-id: 1780630212492-0.005940932880299399' \
+  -H 'msg-app: tripione' \
+  -H 'Origin: https://agents.mytour.vn' \
+  -H 'Connection: keep-alive' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: cross-site' \
+  --data-raw $'{"name":"Nh\xe2n vi\xean","isActive":true}'

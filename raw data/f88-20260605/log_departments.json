@@ -1,0 +1,792 @@
+[
+  {
+    "department": "Ban Giám đốc",
+    "status_code": 200,
+    "response": {
+      "code": 400,
+      "message": "Phòng ban đã tồn tại"
+    }
+  },
+  {
+    "department": "Ban Trợ lý",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3559,
+        "name": "Ban Trợ lý",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Học viện F88",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3560,
+        "name": "Học viện F88",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Khối Chuyển đổi số",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3561,
+        "name": "Khối Chuyển đổi số",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Khối Marcom",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3562,
+        "name": "Khối Marcom",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Khối Tài chính",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3563,
+        "name": "Khối Tài chính",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Nhóm Pháp chế dự án",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3564,
+        "name": "Nhóm Pháp chế dự án",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Nhóm Pháp chế mạng lưới",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3565,
+        "name": "Nhóm Pháp chế mạng lưới",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Bán hàng qua điện thoại",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3566,
+        "name": "Phòng Bán hàng qua điện thoại",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Chiến lược và Vận hành",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3567,
+        "name": "Phòng Chiến lược và Vận hành",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Giải pháp học tập",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3568,
+        "name": "Phòng Giải pháp học tập",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Hành chính",
+    "status_code": 200,
+    "response": {
+      "code": 400,
+      "message": "Phòng ban đã tồn tại"
+    }
+  },
+  {
+    "department": "Phòng Hệ thống Công nghệ thông tin",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3569,
+        "name": "Phòng Hệ thống Công nghệ thông tin",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Khai thác tài sản Miền Bắc",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3570,
+        "name": "Phòng Khai thác tài sản Miền Bắc",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Kiến trúc và Quản trị Công nghệ thông tin",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3571,
+        "name": "Phòng Kiến trúc và Quản trị Công nghệ thông tin",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Kế toán thanh toán",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3572,
+        "name": "Phòng Kế toán thanh toán",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Mua sắm",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3573,
+        "name": "Phòng Mua sắm",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Nguồn vốn quốc tế",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3574,
+        "name": "Phòng Nguồn vốn quốc tế",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Nguồn vốn trong nước",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3575,
+        "name": "Phòng Nguồn vốn trong nước",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Phát triển Kinh doanh",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3576,
+        "name": "Phòng Phát triển Kinh doanh",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Phát triển hệ thống .Net",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3577,
+        "name": "Phòng Phát triển hệ thống .Net",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Phát triển hệ thống Java",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3578,
+        "name": "Phòng Phát triển hệ thống Java",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Phát triển mạng lưới",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3579,
+        "name": "Phòng Phát triển mạng lưới",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Phát triển sản phẩm",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3580,
+        "name": "Phòng Phát triển sản phẩm",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Phát triển đối tác",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3581,
+        "name": "Phòng Phát triển đối tác",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Phân khúc và Trải nghiệm Khách hàng",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3582,
+        "name": "Phòng Phân khúc và Trải nghiệm Khách hàng",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Quản lý Nguồn vốn",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3583,
+        "name": "Phòng Quản lý Nguồn vốn",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Quản lý tài sản Miền Bắc",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3584,
+        "name": "Phòng Quản lý tài sản Miền Bắc",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Quản lý đãi ngộ và Hiệu quả làm việc",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3585,
+        "name": "Phòng Quản lý đãi ngộ và Hiệu quả làm việc",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Quản trị nhân tài và Phát triển tổ chức",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3586,
+        "name": "Phòng Quản trị nhân tài và Phát triển tổ chức",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Quản trị rủi ro Hoạt động",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3587,
+        "name": "Phòng Quản trị rủi ro Hoạt động",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Sản phẩm & Dịch vụ",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3588,
+        "name": "Phòng Sản phẩm & Dịch vụ",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Thương hiệu",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3589,
+        "name": "Phòng Thương hiệu",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Tiếp thị số",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3590,
+        "name": "Phòng Tiếp thị số",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Tiếp thị địa phương",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3591,
+        "name": "Phòng Tiếp thị địa phương",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Truyền thông và Văn hóa",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3592,
+        "name": "Phòng Truyền thông và Văn hóa",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Đối tác Quản lý tài sản",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3593,
+        "name": "Phòng Đối tác Quản lý tài sản",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Phòng Đối tác học tập",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3594,
+        "name": "Phòng Đối tác học tập",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Trung tâm Công nghệ thông tin",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3595,
+        "name": "Trung tâm Công nghệ thông tin",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Trung tâm Phát triển Đối tác",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3596,
+        "name": "Trung tâm Phát triển Đối tác",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Trung tâm Phân khúc",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3597,
+        "name": "Trung tâm Phân khúc",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Trung tâm Quản trị rủi ro",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3598,
+        "name": "Trung tâm Quản trị rủi ro",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Trung tâm Truyền thông Thương hiệu",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3599,
+        "name": "Trung tâm Truyền thông Thương hiệu",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Trung tâm Tăng trưởng Khách hàng",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3600,
+        "name": "Trung tâm Tăng trưởng Khách hàng",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  },
+  {
+    "department": "Văn phòng Chuyển đổi số",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "id": 3601,
+        "name": "Văn phòng Chuyển đổi số",
+        "isActive": true,
+        "numOfEmployees": 0,
+        "approvers": [],
+        "otherApprovers": [],
+        "branchRS": null,
+        "departmentCode": null
+      }
+    }
+  }
+]

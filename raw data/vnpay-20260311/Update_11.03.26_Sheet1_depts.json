@@ -1,0 +1,82 @@
+[
+  {
+    "type": "DEPARTMENT",
+    "name": "Phòng Truyền thông tích hợp",
+    "code": "BMKT_TTTH",
+    "branch": "Ban Marketing",
+    "region": "Hà Nội",
+    "approver": "tuyetna@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Phòng Dịch vụ Hệ sinh thái - Các Phòng ban chức năng",
+    "code": "P.DVHST",
+    "branch": "Các Phòng ban chức năng",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Ban Điều hành",
+    "code": "TTQLSP_BDH",
+    "branch": "Trung tâm Quản lý sản phẩm",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Phòng Kiểm thử phần mềm",
+    "code": "TTQLSP_KTPM",
+    "branch": "Trung tâm Quản lý sản phẩm",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Phòng Quản lý sản phẩm 1",
+    "code": "TTQLSP_QLSP1",
+    "branch": "Trung tâm Quản lý sản phẩm",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Phòng Quản lý sản phẩm 2",
+    "code": "TTQLSP_QLSP2",
+    "branch": "Trung tâm Quản lý sản phẩm",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Phòng Quản trị dự án",
+    "code": "TTQLSP_QTDA",
+    "branch": "Trung tâm Quản lý sản phẩm",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Phòng Thiết kế",
+    "code": "TTQLSP_TK",
+    "branch": "Trung tâm Quản lý sản phẩm",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Quản lý sản phẩm 2",
+    "code": "TTQLSP_QLSP2",
+    "branch": "Trung tâm Quản lý sản phẩm",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  },
+  {
+    "type": "DEPARTMENT",
+    "name": "Trung tâm Quản lý Sản phẩm - Phòng Phân tích và Phát triển Kinh doanh",
+    "code": "TTQLSP_PTPTKD",
+    "branch": "Trung tâm Quản lý sản phẩm",
+    "region": "Hà Nội",
+    "approver": "Tanhle@vnpay.vn"
+  }
+]

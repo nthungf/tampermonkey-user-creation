@@ -1,0 +1,107 @@
+[
+  {
+    "target_user_emails": [
+      "MegaRSM1@hdvnpharma.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "vinod@megawecare.com"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  },
+  {
+    "target_user_emails": [
+      "MegaKAE22@hdvnpharma.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "loan@megawecare.com"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  },
+  {
+    "target_user_emails": [
+      "MegaKAE17@hdvnpharma.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "loan@megawecare.com"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  },
+  {
+    "target_user_emails": [
+      "MegaKAE19@hdvnpharma.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "loan@megawecare.com"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  },
+  {
+    "target_user_emails": [
+      "MegaKAE21@hdvnpharma.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "loan@megawecare.com"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  },
+  {
+    "target_user_emails": [
+      "MegaASM3@hdvnpharma.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "loan@megawecare.com"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  },
+  {
+    "target_user_emails": [
+      "maileduan1992@gmail.com"
+    ],
+    "approval_steps": [
+      {
+        "step_number": 1,
+        "approver_email": "MegaASM1@hdvnpharma.com"
+      },
+      {
+        "step_number": 2,
+        "approver_email": "adminoffice@megawecare.com"
+      }
+    ]
+  }
+]

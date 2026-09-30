@@ -1,0 +1,721 @@
+[
+  {
+    "job_title": "Chuyên gia",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Chuyên viên",
+    "status_code": 200,
+    "response": {
+      "code": 400,
+      "message": "Chức vụ đã tồn tại"
+    }
+  },
+  {
+    "job_title": "Chuyên viên cao cấp",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Chuyên viên chính",
+    "status_code": 200,
+    "response": {
+      "code": 400,
+      "message": "Chức vụ đã tồn tại"
+    }
+  },
+  {
+    "job_title": "Giám đốc",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          },
+          {
+            "id": 1746,
+            "name": "Giám đốc",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Giám đốc Khối",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          },
+          {
+            "id": 1746,
+            "name": "Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1747,
+            "name": "Giám đốc Khối",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Phó Phòng",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          },
+          {
+            "id": 1746,
+            "name": "Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1747,
+            "name": "Giám đốc Khối",
+            "isActive": true
+          },
+          {
+            "id": 1748,
+            "name": "Phó Phòng",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Phó Tổng Giám đốc",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          },
+          {
+            "id": 1746,
+            "name": "Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1747,
+            "name": "Giám đốc Khối",
+            "isActive": true
+          },
+          {
+            "id": 1748,
+            "name": "Phó Phòng",
+            "isActive": true
+          },
+          {
+            "id": 1749,
+            "name": "Phó Tổng Giám đốc",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Thư ký",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          },
+          {
+            "id": 1746,
+            "name": "Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1747,
+            "name": "Giám đốc Khối",
+            "isActive": true
+          },
+          {
+            "id": 1748,
+            "name": "Phó Phòng",
+            "isActive": true
+          },
+          {
+            "id": 1749,
+            "name": "Phó Tổng Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1750,
+            "name": "Thư ký",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Trưởng Phòng",
+    "status_code": 200,
+    "response": {
+      "code": 400,
+      "message": "Chức vụ đã tồn tại"
+    }
+  },
+  {
+    "job_title": "Trưởng nhóm",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          },
+          {
+            "id": 1746,
+            "name": "Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1747,
+            "name": "Giám đốc Khối",
+            "isActive": true
+          },
+          {
+            "id": 1748,
+            "name": "Phó Phòng",
+            "isActive": true
+          },
+          {
+            "id": 1749,
+            "name": "Phó Tổng Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1750,
+            "name": "Thư ký",
+            "isActive": true
+          },
+          {
+            "id": 1751,
+            "name": "Trưởng nhóm",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Trợ lý Giám đốc Khối",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          },
+          {
+            "id": 1746,
+            "name": "Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1747,
+            "name": "Giám đốc Khối",
+            "isActive": true
+          },
+          {
+            "id": 1748,
+            "name": "Phó Phòng",
+            "isActive": true
+          },
+          {
+            "id": 1749,
+            "name": "Phó Tổng Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1750,
+            "name": "Thư ký",
+            "isActive": true
+          },
+          {
+            "id": 1751,
+            "name": "Trưởng nhóm",
+            "isActive": true
+          },
+          {
+            "id": 1752,
+            "name": "Trợ lý Giám đốc Khối",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "job_title": "Tổng Giám đốc",
+    "status_code": 200,
+    "response": {
+      "code": 200,
+      "message": "Thành công",
+      "data": {
+        "itemList": [
+          {
+            "id": 388,
+            "name": "Trưởng Phòng",
+            "isActive": true
+          },
+          {
+            "id": 389,
+            "name": "CEO",
+            "isActive": true
+          },
+          {
+            "id": 393,
+            "name": "Chuyên Viên",
+            "isActive": true
+          },
+          {
+            "id": 396,
+            "name": "Chuyên viên chính",
+            "isActive": true
+          },
+          {
+            "id": 1681,
+            "name": "Admin",
+            "isActive": true
+          },
+          {
+            "id": 1682,
+            "name": "Nhân viên",
+            "isActive": true
+          },
+          {
+            "id": 1744,
+            "name": "Chuyên gia",
+            "isActive": true
+          },
+          {
+            "id": 1745,
+            "name": "Chuyên viên cao cấp",
+            "isActive": true
+          },
+          {
+            "id": 1746,
+            "name": "Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1747,
+            "name": "Giám đốc Khối",
+            "isActive": true
+          },
+          {
+            "id": 1748,
+            "name": "Phó Phòng",
+            "isActive": true
+          },
+          {
+            "id": 1749,
+            "name": "Phó Tổng Giám đốc",
+            "isActive": true
+          },
+          {
+            "id": 1750,
+            "name": "Thư ký",
+            "isActive": true
+          },
+          {
+            "id": 1751,
+            "name": "Trưởng nhóm",
+            "isActive": true
+          },
+          {
+            "id": 1752,
+            "name": "Trợ lý Giám đốc Khối",
+            "isActive": true
+          },
+          {
+            "id": 1753,
+            "name": "Tổng Giám đốc",
+            "isActive": true
+          }
+        ]
+      }
+    }
+  }
+]
