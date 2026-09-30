@@ -1,0 +1,7 @@
+# Ignore everything by default
+*
+.*
+
+# Allow gitignore and the userscript
+!.gitignore
+!user_creation.user.js
