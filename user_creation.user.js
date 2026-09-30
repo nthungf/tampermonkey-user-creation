@@ -17,8 +17,8 @@
 // @grant        GM_deleteValue
 // @grant        GM_getResourceText
 // @grant        GM_addStyle
-// @updateURL    	https://gist.githubusercontent.com/nthungf/3ec13c69a4aaeb7b2e4de84a75b74c38/raw/b2f404c86725846a8c14a69b7f7ce2ca6838cc6b/user_creation.user.js
-// @downloadURL  	https://gist.githubusercontent.com/nthungf/3ec13c69a4aaeb7b2e4de84a75b74c38/raw/b2f404c86725846a8c14a69b7f7ce2ca6838cc6b/user_creation.user.js
+// @updateURL    	https://github.com/nthungf/tampermonkey-user-creation/raw/refs/heads/master/user_creation.user.js
+// @downloadURL  	https://github.com/nthungf/tampermonkey-user-creation/raw/refs/heads/master/user_creation.user.js
 // ==/UserScript==
 
 (function () {
