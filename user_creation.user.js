@@ -17,8 +17,8 @@
 // @grant        GM_deleteValue
 // @grant        GM_getResourceText
 // @grant        GM_addStyle
-// @updateURL    	https://github.com/nthungf/tampermonkey-user-creation/raw/refs/heads/master/user_creation.user.js
-// @downloadURL  	https://github.com/nthungf/tampermonkey-user-creation/raw/refs/heads/master/user_creation.user.js
+// @updateURL    	https://raw.githubusercontent.com/nthungf/tampermonkey-user-creation/refs/heads/master/user_creation.user.js
+// @downloadURL  	https://raw.githubusercontent.com/nthungf/tampermonkey-user-creation/refs/heads/master/user_creation.user.js
 // ==/UserScript==
 
 (function () {
