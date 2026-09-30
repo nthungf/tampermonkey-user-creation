@@ -7,10 +7,10 @@
 // @match        *://agents.mytour.vn/*
 // @match        *://one-dev.tripi.vn/*
 // @match        *://portal.mybiztravel.vn/*
-// @require      https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js
-// @require      https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/javascript/javascript.min.js
-// @require      https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/sql/sql.min.js
-// @resource     CM_CSS https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css
+// @require      https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js
+// @require      https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js
+// @resource     CM_CSS https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css
 // @resource     FA_CSS https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css
 // @grant        GM_setValue
 // @grant        GM_getValue
