@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         User Creation Automation
 // @namespace    http://tampermonkey.net/
-// @version      0.7.6.1
+// @version      0.7.7
 // @description  Automate user creation from JSON data
 // @author       Antigravity
 // @match        *://agents.mytour.vn/*
